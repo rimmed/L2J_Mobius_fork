@@ -40,6 +40,7 @@ import org.l2jmobius.gameserver.model.olympiad.Olympiad;
 import org.l2jmobius.gameserver.model.skill.Skill;
 import org.l2jmobius.gameserver.model.skill.holders.SkillHolder;
 import org.l2jmobius.gameserver.model.zone.ZoneId;
+import org.l2jmobius.gameserver.util.PlayerActionLogger;
 import org.l2jmobius.gameserver.network.SystemMessageId;
 import org.l2jmobius.gameserver.network.serverpackets.AbstractNpcInfo.TrapInfo;
 import org.l2jmobius.gameserver.network.serverpackets.ServerPacket;
@@ -303,8 +304,13 @@ public class Trap extends Npc
 	}
 	
 	@Override
-	public void sendDamageMessage(Creature target, int damage, boolean mcrit, boolean pcrit, boolean miss)
+	public void sendDamageMessage(Creature target, int damage, boolean mcrit, boolean pcrit, boolean miss, Skill skill)
 	{
+		if (_owner != null)
+		{
+			PlayerActionLogger.logDamageInflicted(_owner, damage, target, skill);
+		}
+		
 		if (miss || (_owner == null))
 		{
 			return;

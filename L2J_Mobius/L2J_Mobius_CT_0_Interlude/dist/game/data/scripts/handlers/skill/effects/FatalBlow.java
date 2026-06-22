@@ -73,6 +73,12 @@ public class FatalBlow extends AbstractEffect
 			damage *= 2;
 		}
 		
+		if (effector.isPlayer())
+		{
+			final Player activePlayer = effector.asPlayer();
+			activePlayer.sendDamageMessage(effected, (int) damage, false, true, false, skill);
+		}
+		
 		effected.reduceCurrentHp(damage, effector, skill);
 		effected.notifyDamageReceived(damage, effector, skill, crit, false);
 		
@@ -81,12 +87,6 @@ public class FatalBlow extends AbstractEffect
 		{
 			effected.breakAttack();
 			effected.breakCast();
-		}
-		
-		if (effector.isPlayer())
-		{
-			final Player activePlayer = effector.asPlayer();
-			activePlayer.sendDamageMessage(effected, (int) damage, false, true, false);
 		}
 		
 		// Check if damage should be reflected.

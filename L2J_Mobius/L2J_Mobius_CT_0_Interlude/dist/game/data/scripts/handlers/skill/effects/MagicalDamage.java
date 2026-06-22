@@ -91,9 +91,9 @@ public class MagicalDamage extends AbstractEffect
 			}
 			else
 			{
+				effector.sendDamageMessage(effected, damage, mcrit, false, false, skill);
 				effected.reduceCurrentHp(damage, effector, skill);
 				effected.notifyDamageReceived(damage, effector, skill, mcrit, false);
-				effector.sendDamageMessage(effected, damage, mcrit, false, false);
 			}
 		}
 		

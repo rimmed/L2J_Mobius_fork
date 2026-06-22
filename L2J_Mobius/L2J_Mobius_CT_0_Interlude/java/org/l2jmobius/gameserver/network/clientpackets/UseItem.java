@@ -53,6 +53,7 @@ import org.l2jmobius.gameserver.network.serverpackets.ActionFailed;
 import org.l2jmobius.gameserver.network.serverpackets.ExShowScreenMessage;
 import org.l2jmobius.gameserver.network.serverpackets.ExUseSharedGroupItem;
 import org.l2jmobius.gameserver.network.serverpackets.SystemMessage;
+import org.l2jmobius.gameserver.util.PlayerActionLogger;
 
 public class UseItem extends ClientPacket
 {
@@ -304,10 +305,15 @@ public class UseItem extends ClientPacket
 			
 			// Item reuse time should be added if the item is successfully used.
 			// Skill reuse delay is done at handlers.itemhandlers.ItemSkillsTemplate;
-			if (handler.onItemUse(player, item, _ctrlPressed) && (reuseDelay > 0))
+			if (handler.onItemUse(player, item, _ctrlPressed))
 			{
-				player.addTimeStampItem(item, reuseDelay);
-				sendSharedGroupUpdate(player, sharedReuseGroup, reuseDelay, reuseDelay);
+				// Log every successful item use with remaining inventory count.
+				PlayerActionLogger.logItemUse(player, item);
+				if (reuseDelay > 0)
+				{
+					player.addTimeStampItem(item, reuseDelay);
+					sendSharedGroupUpdate(player, sharedReuseGroup, reuseDelay, reuseDelay);
+				}
 			}
 		}
 	}

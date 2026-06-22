@@ -33,6 +33,7 @@ import org.l2jmobius.gameserver.model.events.holders.actor.player.OnPlayerMoveRe
 import org.l2jmobius.gameserver.model.events.returns.TerminateReturn;
 import org.l2jmobius.gameserver.network.SystemMessageId;
 import org.l2jmobius.gameserver.network.serverpackets.ActionFailed;
+import org.l2jmobius.gameserver.util.PlayerActionLogger;
 
 public class MoveToLocation extends ClientPacket
 {
@@ -164,6 +165,8 @@ public class MoveToLocation extends ClientPacket
 		
 		// Finally move to the target location.
 		player.getAI().setIntention(Intention.MOVE_TO, new Location(_targetX, _targetY, _targetZ));
+		
+		PlayerActionLogger.logMove(player, _targetX, _targetY, _targetZ);
 		
 		// Mobius: Check spawn protections.
 		player.onActionRequest();

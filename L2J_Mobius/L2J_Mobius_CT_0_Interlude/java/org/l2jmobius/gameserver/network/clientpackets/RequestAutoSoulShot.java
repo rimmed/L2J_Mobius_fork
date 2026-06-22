@@ -27,6 +27,7 @@ import org.l2jmobius.gameserver.model.item.type.ActionType;
 import org.l2jmobius.gameserver.network.SystemMessageId;
 import org.l2jmobius.gameserver.network.serverpackets.ExAutoSoulShot;
 import org.l2jmobius.gameserver.network.serverpackets.SystemMessage;
+import org.l2jmobius.gameserver.util.PlayerActionLogger;
 
 /**
  * @version $Revision: 1.0.0.0 $ $Date: 2005/07/11 15:29:30 $
@@ -103,6 +104,7 @@ public class RequestAutoSoulShot extends ClientPacket
 							
 							player.addAutoSoulShot(_itemId);
 							player.sendPacket(new ExAutoSoulShot(_itemId, _type));
+							PlayerActionLogger.logShotAutoUse(player, item, true);
 							
 							// start the auto soulshot use
 							final SystemMessage sm = new SystemMessage(SystemMessageId.THE_AUTOMATIC_USE_OF_S1_HAS_BEEN_ACTIVATED);
@@ -123,6 +125,7 @@ public class RequestAutoSoulShot extends ClientPacket
 						{
 							player.addAutoSoulShot(_itemId);
 							player.sendPacket(new ExAutoSoulShot(_itemId, _type));
+							PlayerActionLogger.logShotAutoUse(player, item, true);
 						}
 						else
 						{
@@ -137,6 +140,7 @@ public class RequestAutoSoulShot extends ClientPacket
 							
 							player.addAutoSoulShot(_itemId);
 							player.sendPacket(new ExAutoSoulShot(_itemId, _type));
+							PlayerActionLogger.logShotAutoUse(player, item, true);
 						}
 						
 						// start the auto soulshot use
@@ -152,6 +156,7 @@ public class RequestAutoSoulShot extends ClientPacket
 			{
 				player.removeAutoSoulShot(_itemId);
 				player.sendPacket(new ExAutoSoulShot(_itemId, _type));
+				PlayerActionLogger.logShotAutoUse(player, item, false);
 				
 				// cancel the auto soulshot use
 				final SystemMessage sm = new SystemMessage(SystemMessageId.THE_AUTOMATIC_USE_OF_S1_HAS_BEEN_DEACTIVATED);

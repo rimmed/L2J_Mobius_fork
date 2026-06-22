@@ -335,6 +335,8 @@ import org.l2jmobius.gameserver.taskmanagers.PlayerAutoSaveTaskManager;
 import org.l2jmobius.gameserver.taskmanagers.PvpFlagTaskManager;
 import org.l2jmobius.gameserver.util.Broadcast;
 import org.l2jmobius.gameserver.util.LocationUtil;
+import org.l2jmobius.gameserver.util.PlayerActionLogger;
+
 
 /**
  * This class represents all player characters in the world.<br>
@@ -4469,6 +4471,7 @@ public class Player extends Playable
 			
 			// Remove the Item from the world and send server->client GetItem packets
 			target.pickupMe(this);
+			PlayerActionLogger.logAction(this, "Pickup", target.getTemplate().getName() + "[" + target.getId() + "]");
 			if (GeneralConfig.SAVE_DROPPED_ITEM)
 			{
 				ItemsOnGroundManager.getInstance().removeObject(target);
@@ -4552,6 +4555,7 @@ public class Player extends Playable
 	public void doAttack(Creature target)
 	{
 		super.doAttack(target);
+		PlayerActionLogger.logAttack(this, target);
 		setRecentFakeDeath(false);
 		if (target.isFakePlayer() && !FakePlayersConfig.FAKE_PLAYER_AUTO_ATTACKABLE)
 		{
@@ -4569,6 +4573,7 @@ public class Player extends Playable
 			return;
 		}
 		
+		PlayerActionLogger.logSkillUse(this, skill.getId(), skill.getName(), getTarget());
 		super.doCast(skill);
 		setRecentFakeDeath(false);
 	}
@@ -7622,6 +7627,7 @@ public class Player extends Playable
 	@Override
 	public Skill addSkill(Skill newSkill)
 	{
+		PlayerActionLogger.logSkillsUpdated(this);
 		addCustomSkill(newSkill);
 		return super.addSkill(newSkill);
 	}
@@ -7637,6 +7643,7 @@ public class Player extends Playable
 	 */
 	public Skill addSkill(Skill newSkill, boolean store)
 	{
+		PlayerActionLogger.logSkillsUpdated(this);
 		// Add a skill to the Player _skills and its Func objects to the calculator set of the Player
 		final Skill oldSkill = addSkill(newSkill);
 		
@@ -10592,6 +10599,7 @@ public class Player extends Playable
 	public void onPlayerEnter()
 	{
 		startWarnUserTakeBreak();
+		PlayerActionLogger.logSkillsUpdated(this);
 		
 		if (SevenSigns.getInstance().isSealValidationPeriod() || SevenSigns.getInstance().isCompResultsPeriod())
 		{
@@ -11026,6 +11034,7 @@ public class Player extends Playable
 	@Override
 	public void reduceCurrentHp(double value, Creature attacker, boolean awake, boolean isDOT, Skill skill)
 	{
+		PlayerActionLogger.logDamageTaken(this, value, attacker, skill);
 		if (skill != null)
 		{
 			getStatus().reduceHp(value, attacker, awake, isDOT, skill.isToggle(), skill.getDmgDirectlyToHP());
@@ -12426,8 +12435,11 @@ public class Player extends Playable
 	}
 	
 	@Override
-	public void sendDamageMessage(Creature target, int damage, boolean mcrit, boolean pcrit, boolean miss)
+	public void sendDamageMessage(Creature target, int damage, boolean mcrit, boolean pcrit, boolean miss, Skill skill)
 	{
+		// Log damage inflicted by a player before death check.
+		PlayerActionLogger.logDamageInflicted(this, damage, target, skill);
+		
 		// Check if hit is missed
 		if (miss)
 		{

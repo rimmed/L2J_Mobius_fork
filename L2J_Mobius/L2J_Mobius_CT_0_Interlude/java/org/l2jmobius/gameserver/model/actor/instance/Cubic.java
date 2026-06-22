@@ -564,7 +564,7 @@ public class Cubic
 				}
 				else
 				{
-					_owner.sendDamageMessage(target, damage, mcrit, false, false);
+					_owner.sendDamageMessage(target, damage, mcrit, false, false, skill);
 					target.reduceCurrentHp(damage, _owner, skill);
 				}
 			}
@@ -593,16 +593,15 @@ public class Cubic
 			// Check to see if we should damage the target
 			if ((damage > 0) && !target.isDead())
 			{
+				owner.sendDamageMessage(target, damage, mcrit, false, false, skill);
 				target.reduceCurrentHp(damage, _owner, skill);
-				
+
 				// Manage attack or cast break of the target (calculating rate, sending message...)
 				if (!target.isRaid() && Formulas.calcAtkBreak(target, damage))
 				{
 					target.breakAttack();
 					target.breakCast();
 				}
-				
-				owner.sendDamageMessage(target, damage, mcrit, false, false);
 			}
 		}
 	}

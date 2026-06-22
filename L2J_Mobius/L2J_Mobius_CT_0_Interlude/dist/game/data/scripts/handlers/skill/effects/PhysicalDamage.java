@@ -88,7 +88,7 @@ public class PhysicalDamage extends AbstractEffect
 		
 		if (damage > 0)
 		{
-			effector.sendDamageMessage(effected, damage, false, crit, false);
+			effector.sendDamageMessage(effected, damage, false, crit, false, skill);
 			effected.reduceCurrentHp(damage, effector, skill);
 			effected.notifyDamageReceived(damage, effector, skill, crit, false);
 			

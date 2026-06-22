@@ -232,6 +232,15 @@ public class PlayerStat extends PlayableStat
 		final boolean levelIncreased = super.addLevel(value);
 		if (levelIncreased)
 		{
+			org.l2jmobius.gameserver.util.PlayerActionLogger.logSkillsUpdated(player);
+			if (!PlayerConfig.DISABLE_TUTORIAL)
+			{
+				final QuestState qs = player.getQuestState("Q00255_Tutorial");
+				if (qs != null)
+				{
+					qs.getQuest().notifyEvent("CE40", null, player);
+				}
+			}
 			if (!PlayerConfig.DISABLE_TUTORIAL)
 			{
 				final QuestState qs = player.getQuestState("Q00255_Tutorial");

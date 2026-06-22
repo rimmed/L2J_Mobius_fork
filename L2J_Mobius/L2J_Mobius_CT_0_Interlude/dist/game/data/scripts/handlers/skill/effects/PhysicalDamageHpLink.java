@@ -86,7 +86,7 @@ public class PhysicalDamageHpLink extends AbstractEffect
 		damage = (int) Formulas.calcPhysDam(effector, effected, skill, shld, crit, ss);
 		if (damage > 0)
 		{
-			effector.sendDamageMessage(effected, damage, false, crit, false);
+			effector.sendDamageMessage(effected, damage, false, crit, false, skill);
 			effected.reduceCurrentHp(damage, effector, skill);
 			effected.notifyDamageReceived(damage, effector, skill, crit, false);
 			

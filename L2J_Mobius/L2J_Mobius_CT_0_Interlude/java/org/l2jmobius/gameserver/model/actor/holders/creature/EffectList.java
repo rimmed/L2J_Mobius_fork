@@ -53,6 +53,7 @@ import org.l2jmobius.gameserver.network.serverpackets.AbnormalStatusUpdate;
 import org.l2jmobius.gameserver.network.serverpackets.ExOlympiadSpelledInfo;
 import org.l2jmobius.gameserver.network.serverpackets.PartySpelled;
 import org.l2jmobius.gameserver.network.serverpackets.ShortBuffStatusUpdate;
+import org.l2jmobius.gameserver.util.PlayerActionLogger;
 
 /**
  * Effect lists.<br>
@@ -1424,6 +1425,12 @@ public class EffectList
 		// After removing old buff (same ID) or stacked buff (same abnormal type),
 		// Add the buff to the end of the effect list.
 		effects.add(info);
+		
+		// Log effect application for players.
+		if (_owner.isPlayer())
+		{
+			PlayerActionLogger.logEffectApplied(_owner.asPlayer(), info);
+		}
 		
 		// Initialize effects.
 		info.initializeEffects();

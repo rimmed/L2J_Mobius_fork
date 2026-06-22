@@ -117,6 +117,7 @@ import org.l2jmobius.gameserver.model.item.enums.ItemProcessType;
 import org.l2jmobius.gameserver.model.item.enums.ShotType;
 import org.l2jmobius.gameserver.model.item.instance.Item;
 import org.l2jmobius.gameserver.model.item.type.WeaponType;
+import org.l2jmobius.gameserver.util.PlayerActionLogger;
 import org.l2jmobius.gameserver.model.itemcontainer.Inventory;
 import org.l2jmobius.gameserver.model.options.OptionSkillHolder;
 import org.l2jmobius.gameserver.model.options.OptionSkillType;
@@ -5080,7 +5081,7 @@ public abstract class Creature extends WorldObject
 		
 		// Send message about damage/crit or miss
 		int damage = damageValue;
-		sendDamageMessage(target, damage, false, crit, miss);
+		sendDamageMessage(target, damage, false, crit, miss, null);
 		
 		// Check Raidboss attack Creature will be petrified if attacking a raid that's more than 8 levels lower
 		if (target.isRaid() && target.giveRaidCurse() && !NpcConfig.RAID_DISABLE_CURSE && (getLevel() > (target.getLevel() + 8)))
@@ -5130,6 +5131,7 @@ public abstract class Creature extends WorldObject
 					}
 				}
 			}
+			
 			
 			// reduce targets HP
 			target.reduceCurrentHp(damage, this, null);
@@ -6470,6 +6472,12 @@ public abstract class Creature extends WorldObject
 				amount = 0;
 			}
 			
+			// Log damage taken by a player.
+			if (isPlayer() && (amount > 0) && (attacker != null))
+			{
+				PlayerActionLogger.logDamageTaken(asPlayer(), amount, attacker, skill);
+			}
+			
 			_status.reduceHp(amount, attacker, awake, isDOT, false);
 		}
 	}
@@ -6601,7 +6609,7 @@ public abstract class Creature extends WorldObject
 	 * @param pcrit
 	 * @param miss
 	 */
-	public void sendDamageMessage(Creature target, int damage, boolean mcrit, boolean pcrit, boolean miss)
+	public void sendDamageMessage(Creature target, int damage, boolean mcrit, boolean pcrit, boolean miss, Skill skill)
 	{
 		if (miss && target.isPlayer())
 		{

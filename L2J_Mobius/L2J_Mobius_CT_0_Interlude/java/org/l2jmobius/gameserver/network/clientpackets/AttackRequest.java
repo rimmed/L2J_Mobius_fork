@@ -25,6 +25,7 @@ import org.l2jmobius.gameserver.model.WorldObject;
 import org.l2jmobius.gameserver.model.actor.Player;
 import org.l2jmobius.gameserver.network.SystemMessageId;
 import org.l2jmobius.gameserver.network.serverpackets.ActionFailed;
+import org.l2jmobius.gameserver.util.PlayerActionLogger;
 
 public class AttackRequest extends ClientPacket
 {
@@ -110,7 +111,7 @@ public class AttackRequest extends ClientPacket
 		}
 		
 		player.onActionRequest();
-		
+
 		if (player.getTarget() != target)
 		{
 			target.onAction(player);
@@ -119,6 +120,7 @@ public class AttackRequest extends ClientPacket
 		{
 			if ((target.getObjectId() != player.getObjectId()) && !player.isInStoreMode() && (player.getActiveRequester() == null))
 			{
+				PlayerActionLogger.logAttack(player, target);
 				target.onForcedAttack(player);
 			}
 			else

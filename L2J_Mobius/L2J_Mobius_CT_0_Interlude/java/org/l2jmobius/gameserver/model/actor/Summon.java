@@ -63,6 +63,7 @@ import org.l2jmobius.gameserver.model.olympiad.Olympiad;
 import org.l2jmobius.gameserver.model.skill.Skill;
 import org.l2jmobius.gameserver.model.skill.targets.TargetType;
 import org.l2jmobius.gameserver.model.zone.ZoneRegion;
+import org.l2jmobius.gameserver.util.PlayerActionLogger;
 import org.l2jmobius.gameserver.network.SystemMessageId;
 import org.l2jmobius.gameserver.network.serverpackets.AbstractNpcInfo.SummonInfo;
 import org.l2jmobius.gameserver.network.serverpackets.ActionFailed;
@@ -774,8 +775,13 @@ public abstract class Summon extends Playable
 	}
 	
 	@Override
-	public void sendDamageMessage(Creature target, int damage, boolean mcrit, boolean pcrit, boolean miss)
+	public void sendDamageMessage(Creature target, int damage, boolean mcrit, boolean pcrit, boolean miss, Skill skill)
 	{
+		if (_owner != null)
+		{
+			PlayerActionLogger.logDamageInflicted(_owner, damage, target, skill);
+		}
+		
 		if (miss || (_owner == null))
 		{
 			return;

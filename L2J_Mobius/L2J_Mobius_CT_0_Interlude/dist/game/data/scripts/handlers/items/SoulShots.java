@@ -35,6 +35,7 @@ import org.l2jmobius.gameserver.model.skill.holders.SkillHolder;
 import org.l2jmobius.gameserver.network.SystemMessageId;
 import org.l2jmobius.gameserver.network.serverpackets.MagicSkillUse;
 import org.l2jmobius.gameserver.util.Broadcast;
+import org.l2jmobius.gameserver.util.PlayerActionLogger;
 
 public class SoulShots implements IItemHandler
 {
@@ -105,6 +106,9 @@ public class SoulShots implements IItemHandler
 		
 		// Charge soul shot
 		weaponInst.setChargedShot(ShotType.SOULSHOTS, true);
+		
+		// Log shot usage
+		PlayerActionLogger.logShotUsage(player, item.getName(), item.getCount());
 		
 		// Send message to client
 		player.sendPacket(SystemMessageId.POWER_OF_THE_SPIRITS_ENABLED);

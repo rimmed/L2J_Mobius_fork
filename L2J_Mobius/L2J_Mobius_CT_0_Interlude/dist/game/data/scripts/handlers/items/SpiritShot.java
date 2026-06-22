@@ -33,6 +33,7 @@ import org.l2jmobius.gameserver.model.item.type.ActionType;
 import org.l2jmobius.gameserver.model.skill.holders.SkillHolder;
 import org.l2jmobius.gameserver.network.SystemMessageId;
 import org.l2jmobius.gameserver.network.serverpackets.MagicSkillUse;
+import org.l2jmobius.gameserver.util.PlayerActionLogger;
 
 public class SpiritShot implements IItemHandler
 {
@@ -97,6 +98,9 @@ public class SpiritShot implements IItemHandler
 		
 		// Charge Spirit shot
 		player.setChargedShot(ShotType.SPIRITSHOTS, true);
+		
+		// Log shot usage
+		PlayerActionLogger.logShotUsage(player, item.getName(), item.getCount());
 		
 		// Send message to client
 		player.sendPacket(SystemMessageId.POWER_OF_MANA_ENABLED);

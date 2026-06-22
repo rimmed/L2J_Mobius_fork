@@ -29,6 +29,7 @@ import org.l2jmobius.gameserver.model.skill.Skill;
 import org.l2jmobius.gameserver.model.skill.targets.TargetType;
 import org.l2jmobius.gameserver.network.SystemMessageId;
 import org.l2jmobius.gameserver.network.serverpackets.ActionFailed;
+import org.l2jmobius.gameserver.util.PlayerActionLogger;
 
 public class RequestMagicSkillUse extends ClientPacket
 {
@@ -100,13 +101,13 @@ public class RequestMagicSkillUse extends ClientPacket
 		}
 		
 		player.onActionRequest();
-		
+
 		// Stop if use self-buff (except if on Boat).
 		if ((skill.isContinuous() && !skill.isDebuff() && (skill.getTargetType() == TargetType.SELF)) && !player.isInBoat())
 		{
 			player.getAI().setIntention(Intention.MOVE_TO, player.getLocation());
 		}
-		
+
 		player.useMagic(skill, _ctrlPressed, _shiftPressed);
 	}
 }

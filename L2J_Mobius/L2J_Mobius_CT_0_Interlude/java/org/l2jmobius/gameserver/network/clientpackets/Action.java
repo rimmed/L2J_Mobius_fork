@@ -27,6 +27,7 @@ import org.l2jmobius.gameserver.model.actor.Player;
 import org.l2jmobius.gameserver.network.PacketLogger;
 import org.l2jmobius.gameserver.network.SystemMessageId;
 import org.l2jmobius.gameserver.network.serverpackets.ActionFailed;
+import org.l2jmobius.gameserver.util.PlayerActionLogger;
 
 public class Action extends ClientPacket
 {
@@ -124,6 +125,7 @@ public class Action extends ClientPacket
 			case 0:
 			{
 				obj.onAction(player);
+				PlayerActionLogger.logTargetSelect(player, obj);
 				break;
 			}
 			case 1:
@@ -136,6 +138,7 @@ public class Action extends ClientPacket
 				{
 					obj.onActionShift(player);
 				}
+				PlayerActionLogger.logTargetSelect(player, obj);
 				break;
 			}
 			default:

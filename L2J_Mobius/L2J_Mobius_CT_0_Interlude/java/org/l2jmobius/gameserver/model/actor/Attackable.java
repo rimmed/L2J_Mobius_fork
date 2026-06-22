@@ -80,6 +80,7 @@ import org.l2jmobius.gameserver.network.enums.ChatType;
 import org.l2jmobius.gameserver.network.serverpackets.CreatureSay;
 import org.l2jmobius.gameserver.network.serverpackets.SystemMessage;
 import org.l2jmobius.gameserver.taskmanagers.DecayTaskManager;
+import org.l2jmobius.gameserver.util.PlayerActionLogger;
 
 public class Attackable extends Npc
 {
@@ -1132,14 +1133,20 @@ public class Attackable extends Npc
 				final ItemTemplate item = ItemData.getInstance().getTemplate(drop.getId());
 				
 				// Check if the autoLoot mode is active
+				final boolean autoLooted;
 				if (PlayerConfig.AUTO_LOOT_ITEM_IDS.contains(item.getId()) || isFlying() || (!item.hasExImmediateEffect() && ((!_isRaid && PlayerConfig.AUTO_LOOT) || (_isRaid && PlayerConfig.AUTO_LOOT_RAIDS))) || (item.hasExImmediateEffect() && PlayerConfig.AUTO_LOOT_HERBS))
 				{
 					player.doAutoLoot(this, drop); // Give the item(s) to the Player that has killed the Attackable
+					autoLooted = true;
 				}
 				else
 				{
 					dropItem(player, drop); // drop the item on the ground
+					autoLooted = false;
 				}
+				
+				// Log the drop
+				PlayerActionLogger.logMobKillDrop(player, getName(), item.getName(), drop.getCount(), autoLooted);
 				
 				// Broadcast message if RaidBoss was defeated
 				if (_isRaid && !_isRaidMinion && (drop.getCount() > 0))
