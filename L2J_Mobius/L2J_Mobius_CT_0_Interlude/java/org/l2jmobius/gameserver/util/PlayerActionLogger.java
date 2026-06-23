@@ -28,7 +28,9 @@ import java.util.Queue;
 import org.l2jmobius.gameserver.model.WorldObject;
 import org.l2jmobius.gameserver.model.actor.Creature;
 import org.l2jmobius.gameserver.model.actor.Player;
+import org.l2jmobius.gameserver.model.actor.Npc;
 import org.l2jmobius.gameserver.model.item.Weapon;
+import org.l2jmobius.gameserver.model.item.instance.Item;
 import org.l2jmobius.gameserver.model.item.instance.Item;
 import org.l2jmobius.gameserver.model.skill.BuffInfo;
 import org.l2jmobius.gameserver.model.skill.Skill;
@@ -642,5 +644,188 @@ public class PlayerActionLogger
 		sb.append("]");
 		
 		return sb.toString();
+	}
+
+	// -------------------------------------------------------------------------
+	// 1. ECONOMY: Item Purchases / Sales
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Logs when a player buys an item from an NPC shop.
+	 * Format: [TIMESTAMP] CharacterName BUY Item: [Item Name] (ID: X), Count: Y, Price: Z Adena (NPC: [NPC Name], ID: NPC_ID)
+	 *
+	 * @param player     the player who bought the item
+	 * @param itemName   the name of the purchased item
+	 * @param itemId     the ID of the purchased item
+	 * @param count      the quantity purchased
+	 * @param price      the total price paid
+	 * @param npcName    the name of the NPC merchant
+	 * @param npcId      the ID of the NPC merchant
+	 */
+	public static void logItemPurchase(Player player, String itemName, int itemId, long count, long price, String npcName, int npcId)
+	{
+		if (player == null)
+		{
+			return;
+		}
+		final String timestamp;
+		synchronized (SHOT_TIMESTAMP_FORMAT)
+		{
+			timestamp = SHOT_TIMESTAMP_FORMAT.format(new Date());
+		}
+		LOGGER.info("[" + timestamp + "] " + player.getName() + " BUY Item: " + itemName + " (ID: " + itemId + "), Count: " + count + ", Price: " + price + " Adena (NPC: " + npcName + ", ID: " + npcId + ")");
+		flush();
+	}
+
+	/**
+	 * Logs when a player sells an item to an NPC shop.
+	 * Format: [TIMESTAMP] CharacterName SELL Item: [Item Name] (ID: X), Count: Y, Price: Z Adena (NPC: [NPC Name], ID: NPC_ID)
+	 *
+	 * @param player     the player who sold the item
+	 * @param itemName   the name of the sold item
+	 * @param itemId     the ID of the sold item
+	 * @param count      the quantity sold
+	 * @param price      the total price received
+	 * @param npcName    the name of the NPC merchant
+	 * @param npcId      the ID of the NPC merchant
+	 */
+	public static void logItemSell(Player player, String itemName, int itemId, long count, long price, String npcName, int npcId)
+	{
+		if (player == null)
+		{
+			return;
+		}
+		final String timestamp;
+		synchronized (SHOT_TIMESTAMP_FORMAT)
+		{
+			timestamp = SHOT_TIMESTAMP_FORMAT.format(new Date());
+		}
+		LOGGER.info("[" + timestamp + "] " + player.getName() + " SELL Item: " + itemName + " (ID: " + itemId + "), Count: " + count + ", Price: " + price + " Adena (NPC: " + npcName + ", ID: " + npcId + ")");
+		flush();
+	}
+
+	// -------------------------------------------------------------------------
+	// 2. CHARACTER PROGRESSION: Skill Learning
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Logs when a player learns a new skill or levels up an existing one.
+	 * Format: [TIMESTAMP] CharacterName learned skill: [Skill Name] (ID: X, Level: Y) [Cost: Z SP/Adena]
+	 *
+	 * @param player    the player who learned the skill
+	 * @param skillName the name of the learned skill
+	 * @param skillId   the ID of the learned skill
+	 * @param skillLevel the level of the learned skill
+	 * @param spCost    the SP cost (0 if none)
+	 * @param adenaCost the Adena cost (0 if none)
+	 */
+	public static void logSkillLearned(Player player, String skillName, int skillId, int skillLevel, int spCost, long adenaCost)
+	{
+		if (player == null)
+		{
+			return;
+		}
+		final String timestamp;
+		synchronized (SHOT_TIMESTAMP_FORMAT)
+		{
+			timestamp = SHOT_TIMESTAMP_FORMAT.format(new Date());
+		}
+		final StringBuilder costStr = new StringBuilder();
+		if (spCost > 0)
+		{
+			costStr.append(spCost).append(" SP");
+		}
+		if (adenaCost > 0)
+		{
+			if (costStr.length() > 0) costStr.append("/");
+			costStr.append(adenaCost).append(" Adena");
+		}
+		if (costStr.length() == 0)
+		{
+			costStr.append("0 SP");
+		}
+		LOGGER.info("[" + timestamp + "] " + player.getName() + " learned skill: " + skillName + " (ID: " + skillId + ", Level: " + skillLevel + ") [Cost: " + costStr.toString() + "]");
+		flush();
+	}
+
+	// -------------------------------------------------------------------------
+	// 3. MOVEMENT & TRAVEL: Teleportation
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Logs when a player teleports from one location to another.
+	 * Format: [TIMESTAMP] CharacterName teleported from [Zone/Coords X,Y,Z] to [Zone/Coords X,Y,Z] via [Method: GK / Scroll / Command]
+	 *
+	 * @param player     the player who teleported
+	 * @param fromX      the source X coordinate
+	 * @param fromY      the source Y coordinate
+	 * @param fromZ      the source Z coordinate
+	 * @param toX        the destination X coordinate
+	 * @param toY        the destination Y coordinate
+	 * @param toZ        the destination Z coordinate
+	 * @param method     the method of teleportation (e.g., "GK", "Scroll", "Command", "Skill")
+	 */
+	public static void logTeleport(Player player, int fromX, int fromY, int fromZ, int toX, int toY, int toZ, String method)
+	{
+		if (player == null)
+		{
+			return;
+		}
+		final String timestamp;
+		synchronized (SHOT_TIMESTAMP_FORMAT)
+		{
+			timestamp = SHOT_TIMESTAMP_FORMAT.format(new Date());
+		}
+		LOGGER.info("[" + timestamp + "] " + player.getName() + " teleported from [" + fromX + "," + fromY + "," + fromZ + "] to [" + toX + "," + toY + "," + toZ + "] via [Method: " + method + "]");
+		flush();
+	}
+
+	// -------------------------------------------------------------------------
+	// 4. LIFE STATE: Death & Resurrection
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Logs when a player dies (HP reaches 0).
+	 * Format: [TIMESTAMP] CharacterName DIED at [Zone/Coords X,Y,Z]. Killer: [Monster/Player Name] (ID: ID)
+	 *
+	 * @param player     the player who died
+	 * @param killerName the name of the killer
+	 * @param killerId   the ID of the killer
+	 */
+	public static void logDeath(Player player, String killerName, int killerId)
+	{
+		if (player == null)
+		{
+			return;
+		}
+		final String timestamp;
+		synchronized (SHOT_TIMESTAMP_FORMAT)
+		{
+			timestamp = SHOT_TIMESTAMP_FORMAT.format(new Date());
+		}
+		LOGGER.info("[" + timestamp + "] " + player.getName() + " DIED at [" + player.getX() + "," + player.getY() + "," + player.getZ() + "]. Killer: " + killerName + " (ID: " + killerId + ")");
+		flush();
+	}
+
+	/**
+	 * Logs when a player resurrects (accepts resurrection or respawns at town).
+	 * Format: [TIMESTAMP] CharacterName RESURRECTED at [Zone/Coords X,Y,Z] via [Method: Town Respawn / Skill Name / Item Name]
+	 *
+	 * @param player the player who resurrected
+	 * @param method the method of resurrection ("Town Respawn", skill name, item name, etc.)
+	 */
+	public static void logResurrection(Player player, String method)
+	{
+		if (player == null)
+		{
+			return;
+		}
+		final String timestamp;
+		synchronized (SHOT_TIMESTAMP_FORMAT)
+		{
+			timestamp = SHOT_TIMESTAMP_FORMAT.format(new Date());
+		}
+		LOGGER.info("[" + timestamp + "] " + player.getName() + " RESURRECTED at [" + player.getX() + "," + player.getY() + "," + player.getZ() + "] via [Method: " + method + "]");
+		flush();
 	}
 }

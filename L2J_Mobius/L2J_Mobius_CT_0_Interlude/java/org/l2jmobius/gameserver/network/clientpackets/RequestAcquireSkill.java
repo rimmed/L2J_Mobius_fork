@@ -40,6 +40,7 @@ import org.l2jmobius.gameserver.model.skill.holders.SkillHolder;
 import org.l2jmobius.gameserver.model.skill.holders.SkillLearn;
 import org.l2jmobius.gameserver.network.PacketLogger;
 import org.l2jmobius.gameserver.network.SystemMessageId;
+import org.l2jmobius.gameserver.util.PlayerActionLogger;
 import org.l2jmobius.gameserver.network.serverpackets.ExStorageMaxCount;
 import org.l2jmobius.gameserver.network.serverpackets.PledgeSkillList;
 import org.l2jmobius.gameserver.network.serverpackets.SystemMessage;
@@ -286,6 +287,11 @@ public class RequestAcquireSkill extends ClientPacket
 		{
 			player.sendPacket(new ExStorageMaxCount(player));
 		}
+		
+		// Log skill learning
+		final SkillLearn skillLearn = SkillTreeData.getInstance().getSkillLearn(_skillType, _id, _level, player);
+		final int spCost = (skillLearn != null) ? skillLearn.getCalculatedLevelUpSp(player.getPlayerClass(), player.getLearningClass()) : 0;
+		PlayerActionLogger.logSkillLearned(player, skill.getName(), _id, _level, spCost, 0);
 		
 		// Notify scripts of the skill learn.
 		if (EventDispatcher.getInstance().hasListener(EventType.ON_PLAYER_SKILL_LEARN, trainer))

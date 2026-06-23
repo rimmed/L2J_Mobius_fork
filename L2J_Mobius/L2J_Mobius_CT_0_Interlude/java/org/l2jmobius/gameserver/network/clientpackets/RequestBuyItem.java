@@ -31,6 +31,7 @@ import org.l2jmobius.gameserver.config.PlayerConfig;
 import org.l2jmobius.gameserver.config.RatesConfig;
 import org.l2jmobius.gameserver.data.xml.BuyListData;
 import org.l2jmobius.gameserver.managers.PunishmentManager;
+import org.l2jmobius.gameserver.util.PlayerActionLogger;
 import org.l2jmobius.gameserver.model.WorldObject;
 import org.l2jmobius.gameserver.model.actor.Creature;
 import org.l2jmobius.gameserver.model.actor.Player;
@@ -263,6 +264,9 @@ public class RequestBuyItem extends ClientPacket
 				continue;
 			}
 			
+			final int price = product.getPrice();
+			final int totalPrice = i.getCount() * (int) (price * (1 + castleTaxRate + baseTaxRate));
+			
 			if (product.hasLimitedStock())
 			{
 				if (product.decreaseCount(i.getCount()))
@@ -273,6 +277,12 @@ public class RequestBuyItem extends ClientPacket
 			else
 			{
 				player.getInventory().addItem(ItemProcessType.BUY, i.getId(), i.getCount(), player, merchant);
+			}
+			
+			// Log the purchase
+			if (merchant != null)
+			{
+				PlayerActionLogger.logItemPurchase(player, product.getItem().getName(), i.getId(), i.getCount(), totalPrice, merchant.getName(), merchant.getId());
 			}
 		}
 		

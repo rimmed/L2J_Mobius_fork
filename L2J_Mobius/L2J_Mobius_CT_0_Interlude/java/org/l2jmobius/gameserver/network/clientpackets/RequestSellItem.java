@@ -40,6 +40,7 @@ import org.l2jmobius.gameserver.model.item.enums.ItemProcessType;
 import org.l2jmobius.gameserver.model.item.holders.UniqueItemHolder;
 import org.l2jmobius.gameserver.model.item.instance.Item;
 import org.l2jmobius.gameserver.network.SystemMessageId;
+import org.l2jmobius.gameserver.util.PlayerActionLogger;
 import org.l2jmobius.gameserver.network.serverpackets.ActionFailed;
 import org.l2jmobius.gameserver.network.serverpackets.StatusUpdate;
 
@@ -177,6 +178,12 @@ public class RequestSellItem extends ClientPacket
 			else
 			{
 				player.getInventory().destroyItem(ItemProcessType.SELL, i.getObjectId(), i.getCount(), player, merchant);
+			}
+			
+			// Log the sale
+			if (merchant != null)
+			{
+				PlayerActionLogger.logItemSell(player, item.getName(), item.getId(), i.getCount(), price * i.getCount(), merchant.getName(), merchant.getId());
 			}
 		}
 		

@@ -857,6 +857,13 @@ public abstract class Creature extends WorldObject
 			onTeleported();
 		}
 		
+		// Log teleportation for players
+		if (isPlayer())
+		{
+			final Player player = asPlayer();
+			PlayerActionLogger.logTeleport(player, xValue, yValue, zValue, x, y, z, "Teleport");
+		}
+		
 		revalidateZone(true);
 	}
 	

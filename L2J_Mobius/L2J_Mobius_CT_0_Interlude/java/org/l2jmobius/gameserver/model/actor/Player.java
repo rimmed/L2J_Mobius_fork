@@ -5012,6 +5012,11 @@ public class Player extends Playable
 			stopFakeDeath(true);
 		}
 		// }
+
+		// Log death
+		final String killerName = (killer != null) ? killer.getName() : "Unknown";
+		final int killerId = (killer != null) ? killer.getObjectId() : 0;
+		PlayerActionLogger.logDeath(this, killerName, killerId);
 		
 		if (killer != null)
 		{
@@ -10712,6 +10717,9 @@ public class Player extends Playable
 		_revivePet = false;
 		_reviveRequested = 0;
 		_revivePower = 0;
+
+		// Log resurrection
+		PlayerActionLogger.logResurrection(this, "Town Respawn");
 		
 		// Teleport summon to player.
 		if (isInsideZone(ZoneId.PEACE) && (_summon != null) && !_summon.isInsideZone(ZoneId.SIEGE))
