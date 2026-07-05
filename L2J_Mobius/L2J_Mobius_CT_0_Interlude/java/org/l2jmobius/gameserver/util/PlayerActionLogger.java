@@ -29,6 +29,7 @@ import org.l2jmobius.gameserver.model.WorldObject;
 import org.l2jmobius.gameserver.model.actor.Creature;
 import org.l2jmobius.gameserver.model.actor.Player;
 import org.l2jmobius.gameserver.model.actor.Npc;
+import org.l2jmobius.gameserver.model.actor.enums.creature.Race;
 import org.l2jmobius.gameserver.model.item.Weapon;
 import org.l2jmobius.gameserver.model.item.instance.Item;
 import org.l2jmobius.gameserver.model.item.instance.Item;
@@ -73,34 +74,51 @@ public class PlayerActionLogger
 			handler.flush();
 		}
 	}
-
-	private static String getPlayerStatus(Player player)
+	
+	// ========================================================================
+	// Helper: Build the standard suffix blocks (Player + Nav + Env + CD).
+	// These are appended to every log line after the action-specific prefix.
+	// ========================================================================
+	
+	/**
+	 * Builds the suffix that is appended to every action log line:
+	 * [CharStatus: HP:... MP:... CP:... Exp:... Sp:... Lvl:...]
+	 * [CharStats: P.Atk:... M.Atk:... P.Def:... M.Def:... Accur:... Crit.rate:... Evasion:... Atk.Speed:... Cast.Speed:... STR:... INT:... DEX:... CON:... WIT:...]
+	 * [Weapon:... Shield:... Head:... Chest:... Gloves:... Legs:... Feet:... Neck:... REar:... LEar:... RFinger:... LFinger:...]
+	 * [Pos:X,Y,Z Head:... Sit:... Cast:... Atk:... Dead:... Wt:...%]
+	 * [Nav: Dist:... LoS:... THead:...]
+	 * [Env:NearbyMon:X GroundItems:Y InCombat:...] [CD:...]
+	 */
+	private static String buildLogSuffix(Player player, WorldObject targetRef, boolean castingState)
 	{
-		final StringBuilder sb = new StringBuilder();
-		
-		sb.append("[HP:").append(String.format("%.1f", player.getStatus().getCurrentHp())).append("/").append(player.getMaxHp());
-		sb.append(" MP:").append(String.format("%.1f", player.getStatus().getCurrentMp())).append("/").append(player.getMaxMp());
-		sb.append(" CP:").append(String.format("%.1f", player.getStatus().getCurrentCp())).append("/").append(player.getMaxCp());
-		sb.append(" Exp:").append(player.getExp()).append(" Sp:").append(player.getSp());
-		sb.append(" Lvl:").append(player.getLevel()).append("]");
-		
-		sb.append(" P.Atk:").append((int)player.getPAtk(player));
-		sb.append(" M.Atk:").append((int)player.getMAtk(player, null));
-		sb.append(" P.Def:").append((int)player.getPDef(player));
-		sb.append(" M.Def:").append((int)player.getMDef(player, null));
-		sb.append(" Accur:").append(player.getAccuracy());
-		sb.append("Crit.rate:").append(player.getCriticalHit(player, null));
-		sb.append("Evasion:").append(player.getEvasionRate(player));
-		sb.append("Atk.Speed:").append(player.getPAtkSpd());
-		sb.append("Cast.Speed:").append(player.getMAtkSpd());
-
-		sb.append("STR:").append(player.getSTR());
-		sb.append("INT:").append(player.getINT());
-		sb.append("DEX:").append(player.getDEX());
-		sb.append("CON:").append(player.getCON());
-		sb.append("WIT:").append(player.getWIT());
-
-		return sb.toString();
+		return getCharStatus(player) + " " + getCharStats(player) + " " + getEquipmentInfo(player) + " " + getSpatialInfo(player, castingState) + " " + getNavInfo(player, targetRef) + " " + getEnvironmentRadar(player) + " " + getCooldownInfo(player);
+	}
+	
+	private static String getCharStatus(Player player)
+	{
+		return "[CharStatus: HP:" + String.format("%.1f", player.getStatus().getCurrentHp()) + "/" + player.getMaxHp() +
+			" MP:" + String.format("%.1f", player.getStatus().getCurrentMp()) + "/" + player.getMaxMp() +
+			" CP:" + String.format("%.1f", player.getStatus().getCurrentCp()) + "/" + player.getMaxCp() +
+			" Exp:" + player.getExp() + " Sp:" + player.getSp() +
+			" Lvl:" + player.getLevel() + "]";
+	}
+	
+	private static String getCharStats(Player player)
+	{
+		return "[CharStats: P.Atk:" + (int) player.getPAtk(player) +
+			" M.Atk:" + (int) player.getMAtk(player, null) +
+			" P.Def:" + (int) player.getPDef(player) +
+			" M.Def:" + (int) player.getMDef(player, null) +
+			" Accur:" + player.getAccuracy() +
+			" Crit.rate:" + player.getCriticalHit(player, null) +
+			" Evasion:" + player.getEvasionRate(player) +
+			" Atk.Speed:" + player.getPAtkSpd() +
+			" Cast.Speed:" + player.getMAtkSpd() +
+			" STR:" + player.getSTR() +
+			" INT:" + player.getINT() +
+			" DEX:" + player.getDEX() +
+			" CON:" + player.getCON() +
+			" WIT:" + player.getWIT() + "]";
 	}
 	
 	private static String getCooldownInfo(Player player)
@@ -109,8 +127,7 @@ public class PlayerActionLogger
 		final java.util.Map<Integer, TimeStamp> stamps = player.getSkillReuseTimeStamps();
 		if ((stamps == null) || stamps.isEmpty())
 		{
-			sb.append("[CD:None]");
-			return sb.toString();
+			return "[CD:None]";
 		}
 		
 		sb.append("[CD:");
@@ -121,19 +138,13 @@ public class PlayerActionLogger
 			final long remaining = ts.getRemaining();
 			if (remaining > 0)
 			{
-				if (!first)
-				{
-					sb.append(",");
-				}
+				if (!first) sb.append(",");
 				sb.append(ts.getSkillId()).append(":").append(remaining);
 				first = false;
 			}
 		}
 		
-		if (first)
-		{
-			sb.append("None");
-		}
+		if (first) sb.append("None");
 		sb.append("]");
 		return sb.toString();
 	}
@@ -150,10 +161,7 @@ public class PlayerActionLogger
 			boolean first = true;
 			for (BuffInfo buff : buffs)
 			{
-				if (!first)
-				{
-					sb.append(",");
-				}
+				if (!first) sb.append(",");
 				final Skill skill = buff.getSkill();
 				sb.append(skill.getName()).append("(").append(skill.getId()).append(")").append(":").append(buff.getTime()).append("s");
 				first = false;
@@ -169,10 +177,7 @@ public class PlayerActionLogger
 			boolean first = true;
 			for (BuffInfo debuff : debuffs)
 			{
-				if (!first)
-				{
-					sb.append(",");
-				}
+				if (!first) sb.append(",");
 				final Skill skill = debuff.getSkill();
 				sb.append(skill.getName()).append("(").append(skill.getId()).append(")").append(":").append(debuff.getTime()).append("s");
 				first = false;
@@ -215,267 +220,200 @@ public class PlayerActionLogger
 		return sb.toString();
 	}
 	
-	public static void logSkillsUpdated(Player player)
+	private static String getSpatialInfo(Player player, boolean castingState)
 	{
-		if (player == null)
-		{
-			return;
-		}
-		
-		final String skillsInfo = getSkillsUpdatedInfo(player);
-		LOGGER.info(player.getName() + " skills updated: " + skillsInfo + " " + getPlayerStatus(player) + " " + getEquipmentInfo(player) + " " + getSpatialInfo(player, player.isCastingNow()) + " " + getTargetContext(player, player.getTarget()) + " " + getEnvironmentRadar(player) + " " + getCooldownInfo(player));
-		flush();
+		return "[Pos:" + player.getX() + "," + player.getY() + "," + player.getZ() +
+			" Head:" + player.getHeading() +
+			" Sit:" + player.isSitting() +
+			" Cast:" + castingState +
+			" Atk:" + player.isAttackingNow() +
+			" Dead:" + player.isAlikeDead() +
+			" Wt:" + String.format("%.1f", (player.getMaxLoad() > 0) ? ((double) player.getCurrentLoad() / player.getMaxLoad() * 100) : 0) + "%]";
 	}
-
-	public static void logTargetSelect(Player player, WorldObject target)
-	{
-		if (player == null)
-		{
-			return;
-		}
-		
-		// Dedup: skip if same target selected within cooldown window
-		final long key = ((long) player.getObjectId() << 32) | (target != null ? target.getObjectId() : 0);
-		final Long lastTime = _targetSelectLogTimes.get(key);
-		final long now = System.currentTimeMillis();
-		if ((lastTime != null) && ((now - lastTime) < TARGET_SELECT_LOG_COOLDOWN))
-		{
-			return;
-		}
-		_targetSelectLogTimes.put(key, now);
-		
-		final String targetName = target != null ? target.getName() : "None";
-		LOGGER.info(player.getName() + " selected target: " + targetName + " " + getPlayerStatus(player) + " " + getEquipmentInfo(player) + " " + getSpatialInfo(player, player.isCastingNow()) + " " + getTargetContext(player, target) + " " + getEnvironmentRadar(player) + " " + getCooldownInfo(player));
-		flush();
-	}
-
-	public static void logMove(Player player, int x, int y, int z)
-	{
-		if (player == null)
-		{
-			return;
-		}
-		
-		// Clear dead targets from movement logs to avoid phantom target tracking
-		WorldObject target = player.getTarget();
-		String targetContext = getTargetContext(player, target);
-		if ((target instanceof Creature) && ((((Creature) target).getCurrentHp() / ((Creature) target).getMaxHp()) == 0.0))
-		{
-			targetContext = "[Target:None]";
-		}
-		
-		LOGGER.info(player.getName() + " moved to: [" + x + "," + y + "," + z + "] " + getPlayerStatus(player) + " " + getEquipmentInfo(player) + " " + getSpatialInfo(player, player.isCastingNow()) + " " + targetContext + " " + getEnvironmentRadar(player) + " " + getCooldownInfo(player));
-		flush();
-	}
-
-	public static void logAttack(Player player, WorldObject target)
-	{
-		if (player == null)
-		{
-			return;
-		}
-		final String targetName = target != null ? target.getName() : "None";
-		LOGGER.info(player.getName() + " attacked: " + targetName + " " + getPlayerStatus(player) + " " + getEquipmentInfo(player) + " " + getSpatialInfo(player, player.isCastingNow()) + " " + getTargetContext(player, target) + " " + getEnvironmentRadar(player) + " " + getCooldownInfo(player));
-		flush();
-	}
-
-	public static void logSkillUse(Player player, int skillId, String skillName, WorldObject target)
-	{
-		if (player == null)
-		{
-			return;
-		}
-		final String targetName = target != null ? target.getName() : "None";
-		LOGGER.info(player.getName() + " used skill: " + skillName + "[" + skillId + "] on " + targetName + " " + getPlayerStatus(player) + " " + getEquipmentInfo(player) + " " + getSpatialInfo(player, player.isCastingNow()) + " " + getTargetContext(player, target) + " " + getEnvironmentRadar(player) + " " + getCooldownInfo(player));
-		flush();
-	}
-
+	
+	// ========================================================================
+	//  NPC Trait Extraction
+	// ========================================================================
+	
 	/**
-	 * Logs when a player enables or disables the auto-use toggle for a Soulshot/Spiritshot.
-	 * Produces a log line in the format:
-	 * PlayerName enabled auto-use for item: ItemName (Item ID: X)
-	 * PlayerName disabled auto-use for item: ItemName (Item ID: X)
-	 *
-	 * @param player  the player toggling auto-use
-	 * @param item    the shot item whose auto-use state changed
-	 * @param enabled true if auto-use was activated, false if deactivated
+	 * Builds the [Type:X] [Weak:A,B] [Resist:C,D] string for an NPC target.
 	 */
-	public static void logShotAutoUse(Player player, Item item, boolean enabled)
+	private static String getNpcTraits(Npc npc)
 	{
-		if ((player == null) || (item == null))
-		{
-			return;
-		}
-		final String state = enabled ? "enabled" : "disabled";
-		LOGGER.info(player.getName() + " " + state + " auto-use for item: " + item.getTemplate().getName() + " (Item ID: " + item.getId() + ")");
-		flush();
-	}
-
-	/**
-	 * Logs a successful item use with the remaining inventory count.
-	 * Produces a log line in the format:
-	 * PlayerName used item: ItemName [Remaining: Count]
-	 *
-	 * @param player the player who used the item
-	 * @param item   the item that was successfully consumed/used
-	 */
-	public static void logItemUse(Player player, Item item)
-	{
-		if ((player == null) || (item == null))
-		{
-			return;
-		}
-		LOGGER.info(player.getName() + " used item: " + item.getTemplate().getName() + " [Remaining: " + item.getCount() + "]");
-		flush();
-	}
-
-	public static void logAction(Player player, String actionName, String details)
-	{
-		if (player == null)
-		{
-			return;
-		}
+		final StringBuilder sb = new StringBuilder();
 		
-		// For pickup actions, clear dead target context to avoid ghost monster tracking
-		String targetContext = getTargetContext(player, player.getTarget());
-		if ((actionName != null) && actionName.toLowerCase().contains("pickup"))
+		// Type / Race
+		final Race race = npc.getTemplate().getRace();
+		sb.append("[Type:").append(race.name()).append("]");
+		
+		final java.util.List<String> weak = new java.util.ArrayList<>();
+		final java.util.List<String> resist = new java.util.ArrayList<>();
+		
+		final int basePDef = npc.getTemplate().getBasePDef();
+		final int baseMDef = npc.getTemplate().getBaseMDef();
+		final int basePAtk = npc.getTemplate().getBasePAtk();
+		final int baseMAtk = npc.getTemplate().getBaseMAtk();
+		
+		// Physical/Magical defense assessment
+		if (basePDef >= 500) resist.add("STRONG_P_DEF");
+		else if (basePDef <= 100) weak.add("WEAK_P_DEF");
+		
+		if (baseMDef >= 500) resist.add("STRONG_M_DEF");
+		else if (baseMDef <= 100) weak.add("WEAK_M_DEF");
+		
+		// Attack power assessment
+		if (basePAtk >= 500) resist.add("STRONG_P_ATK");
+		else if (basePAtk <= 100) weak.add("WEAK_P_ATK");
+		
+		if (baseMAtk >= 500) resist.add("STRONG_M_ATK");
+		else if (baseMAtk <= 100) weak.add("WEAK_M_ATK");
+		
+		// Elemental resistances
+		checkElementalTrait(npc.getTemplate().getBaseFireRes(), "FIRE", weak, resist);
+		checkElementalTrait(npc.getTemplate().getBaseWindRes(), "WIND", weak, resist);
+		checkElementalTrait(npc.getTemplate().getBaseWaterRes(), "WATER", weak, resist);
+		checkElementalTrait(npc.getTemplate().getBaseEarthRes(), "EARTH", weak, resist);
+		checkElementalTrait(npc.getTemplate().getBaseHolyRes(), "HOLY", weak, resist);
+		checkElementalTrait(npc.getTemplate().getBaseDarkRes(), "DARK", weak, resist);
+		
+		// Weapon vulnerability based on base attack type
+		final org.l2jmobius.gameserver.model.item.type.WeaponType atkType = npc.getTemplate().getBaseAttackType();
+		if (atkType != null)
 		{
-			final WorldObject target = player.getTarget();
-			if ((target instanceof Creature) && ((((Creature) target).getCurrentHp() / ((Creature) target).getMaxHp()) == 0.0))
+			switch (atkType)
 			{
-				targetContext = "[Target:None]";
+				case BOW: weak.add("ARCHER_WEAKNESS"); resist.add("MELEE_RESISTANCE"); break;
+				case BLUNT: weak.add("BLUNT_WEAKNESS"); break;
+				case DAGGER: weak.add("DAGGER_WEAKNESS"); break;
+				case DUAL: case DUALFIST: case DUALDAGGER: weak.add("DUAL_WEAKNESS"); break;
+				case FIST: weak.add("FIST_WEAKNESS"); break;
+				case POLE: weak.add("POLE_WEAKNESS"); break;
+				case SWORD: weak.add("SWORD_WEAKNESS"); break;
+				default: weak.add("MELEE_WEAKNESS"); break;
 			}
 		}
 		
-		LOGGER.info(player.getName() + " performed action: " + actionName + " - " + details + " " + getPlayerStatus(player) + " " + getEquipmentInfo(player) + " " + getSpatialInfo(player, player.isCastingNow()) + " " + targetContext + " " + getEnvironmentRadar(player) + " " + getCooldownInfo(player));
-	}
-
-	public static void logMobKillDrop(Player player, String mobName, String itemName, long itemCount, boolean autoLooted)
-	{
-		if (player == null)
+		// Race-based trait heuristics
+		if (race == Race.UNDEAD) { weak.add("HOLY_WEAKNESS"); resist.add("DARK_RESISTANCE"); }
+		else if (race == Race.DEMONIC) { weak.add("HOLY_WEAKNESS"); }
+		else if (race == Race.CONSTRUCT) { resist.add("SLEEP_IMMUNITY"); }
+		else if (race == Race.PLANT) { weak.add("FIRE_WEAKNESS"); }
+		else if (race == Race.ANIMAL) { weak.add("FIRE_WEAKNESS"); }
+		else if (race == Race.BEAST) { weak.add("MELEE_WEAKNESS"); }
+		
+		// Append Weakness list
+		sb.append(" [Weak:");
+		if (weak.isEmpty()) sb.append("NONE");
+		else
 		{
-			return;
+			boolean first = true;
+			for (String w : weak) { if (!first) sb.append(","); sb.append(w); first = false; }
 		}
+		sb.append("]");
 		
-		// Bug 2: Ensure Cast:false on the kill event line.
-		// Force Cast to false: when a mob is killed, the casting action has concluded.
-		String spatialInfo = getSpatialInfo(player, false);
+		// Append Resistance list
+		sb.append(" [Resist:");
+		if (resist.isEmpty()) sb.append("NONE");
+		else
+		{
+			boolean first = true;
+			for (String r : resist) { if (!first) sb.append(","); sb.append(r); first = false; }
+		}
+		sb.append("]");
 		
-		LOGGER.info(player.getName() + " killed: " + mobName + " dropped: " + itemName + "[" + itemCount + "]" + (autoLooted ? " auto-looted" : " ground") + " " + getPlayerStatus(player) + " " + getEquipmentInfo(player) + " " + spatialInfo + " " + getTargetContext(player, player.getTarget()) + " " + getEnvironmentRadar(player) + " " + getCooldownInfo(player));
+		return sb.toString();
 	}
-
+	
+	private static void checkElementalTrait(double resValue, String elementName, java.util.List<String> weak, java.util.List<String> resist)
+	{
+		if (resValue >= 50) resist.add(elementName + "_RESISTANCE");
+		else if (resValue <= -50) weak.add(elementName + "_WEAKNESS");
+	}
+	
+	// ========================================================================
+	// Target Details Formatting (for the prefix, not the Nav block)
+	// ========================================================================
+	
 	/**
-	 * Logs Soulshot/Spiritshot (including Blessed variants) consumption with the remaining inventory count.
-	 * Produces a dedicated log line in the format:
-	 * [HH:mm:ss,SSS] PlayerName used Shot_Name | Remaining: Count
-	 *
-	 * @param player         the player who consumed the shot
-	 * @param shotName       the display name of the shot item (e.g. "Blessed Spiritshot (No-Grade)")
-	 * @param remainingCount the number of that shot type remaining in inventory after consumption
+	 * Formats the action target descriptor (no duplication with Nav block).
+	 * For NPCs:  Monster_Name (NPC_ID:ID, Lvl:Lvl) | HP:Cur/Max (Pct%) [Type:X] [Weak:A,B] [Resist:C,D]
+	 * For Players: PlayerName (Lvl:X)
+	 * For others: just name or "None".
 	 */
-	public static void logShotUsage(Player player, String shotName, long remainingCount)
+	private static String getActionTarget(WorldObject target)
 	{
-		if (player == null)
+		if (target == null)
 		{
-			return;
-		}
-		final String timestamp;
-		synchronized (SHOT_TIMESTAMP_FORMAT)
-		{
-			timestamp = SHOT_TIMESTAMP_FORMAT.format(new Date());
-		}
-		LOGGER.info("[" + timestamp + "] " + player.getName() + " used " + shotName + " | Remaining: " + remainingCount);
-		flush();
-	}
-
-	public static void logDamageTaken(Player player, double damage, Creature attacker, Skill skill)
-	{
-		if (player == null)
-		{
-			return;
-		}
-		final long key = ((long) player.getObjectId() << 32) | (attacker != null ? attacker.getObjectId() : 0);
-		final Long lastTime = _damageLogTimes.get(key);
-		final long now = System.currentTimeMillis();
-		if ((lastTime != null) && ((now - lastTime) < DAMAGE_LOG_COOLDOWN))
-		{
-			return;
-		}
-		_damageLogTimes.put(key, now);
-		final String attackerName = attacker != null ? attacker.getName() : "unknown";
-		final String skillName = skill != null ? skill.getName() : "N/A";
-		String damageStr = (int) damage + "";
-		if (damage == 0)
-		{
-			damageStr = "0 (MISS/BLOCK)";
-		}
-		LOGGER.info(player.getName() + " took damage: " + damageStr + " from: " + attackerName + " skill: " + skillName + " " + getPlayerStatus(player) + " " + getEquipmentInfo(player) + " " + getSpatialInfo(player, player.isCastingNow()) + " " + getTargetContext(player, attacker) + " " + getEnvironmentRadar(player) + " " + getCooldownInfo(player));
-		flush();
-	}
-
-	public static void logDamageInflicted(Player player, double damage, Creature target, Skill skill)
-	{
-		if (player == null)
-		{
-			return;
-		}
-		final long key = ((long) player.getObjectId() << 32) | (target != null ? target.getObjectId() : 0);
-		final Long lastTime = _damageLogTimes.get(key);
-		final long now = System.currentTimeMillis();
-		if ((lastTime != null) && ((now - lastTime) < DAMAGE_LOG_COOLDOWN))
-		{
-			return;
-		}
-		_damageLogTimes.put(key, now);
-		final String targetName = target != null ? target.getName() : "unknown";
-		final String skillName = skill != null ? skill.getName() : "N/A";
-		String damageStr = (int) damage + "";
-		if (damage == 0)
-		{
-			damageStr = "0 (MISS/BLOCK)";
+			return "None";
 		}
 		
-		// When logging damage inflicted, the cast has completed; ensure Cast:false in logged state.
-		// Force Cast to false: damage infliction means the spell/attack has landed.
-		String spatialInfo = getSpatialInfo(player, false);
+		if (target.isNpc())
+		{
+			final Npc npc = (Npc) target;
+			final double currentHp = npc.getCurrentHp();
+			final double maxHp = npc.getMaxHp();
+			final double hpPct = (maxHp > 0) ? (currentHp / maxHp * 100) : 0;
+			return npc.getName() + " (NPC_ID:" + npc.getId() + ", Lvl:" + npc.getLevel() + ") | HP:" + String.format("%.1f", currentHp) + "/" + String.format("%.1f", maxHp) + " (" + String.format("%.1f", hpPct) + "%) " + getNpcTraits(npc);
+		}
+		else if (target instanceof Creature)
+		{
+			return ((Creature) target).getName() + " (Lvl:" + ((Creature) target).getLevel() + ")";
+		}
 		
-		LOGGER.info(player.getName() + " inflicted damage: " + damageStr + " to: " + targetName + " skill: " + skillName + " " + spatialInfo + " " + getTargetContext(player, target) + " " + getEnvironmentRadar(player) + " " + getCooldownInfo(player));
-		flush();
+		return target.getName();
 	}
-
-	public static void logBuffsDebuffs(Player player)
+	
+	/**
+	 * Navigation block — no duplicated NPC name/id/type/weakness data.
+	 * Format: [Nav: Dist:XXX.X LoS:true/false THead:XXX]
+	 * Returns "[Nav: None]" if target is null.
+	 */
+	private static String getNavInfo(Player player, WorldObject target)
 	{
-		if (player == null)
+		if (target == null)
 		{
-			return;
+			return "[Nav:None]";
 		}
-		final int playerId = player.getObjectId();
-		final Long lastTime = _buffDebuffLogTimes.get(playerId);
-		final long now = System.currentTimeMillis();
-		if ((lastTime != null) && ((now - lastTime) < BUFF_DEBUFF_LOG_COOLDOWN))
+		
+		final StringBuilder sb = new StringBuilder();
+		sb.append("[Nav: Dist:").append(String.format("%.1f", player.calculateDistance3D(target)));
+		sb.append(" LoS:").append(player.isInsideRadius3D(target, 1500) && GeoEngine.getInstance().canSeeTarget(player, target));
+		
+		if (target instanceof Creature)
 		{
-			return;
+			sb.append(" THead:").append(((Creature) target).getHeading());
 		}
-		_buffDebuffLogTimes.put(playerId, now);
-		LOGGER.info(player.getName() + " active effects: " + getBuffDebuffInfo(player) + " " + getPlayerStatus(player) + " " + getEquipmentInfo(player) + " " + getSpatialInfo(player, player.isCastingNow()) + " " + getTargetContext(player, player.getTarget()) + " " + getEnvironmentRadar(player) + " " + getCooldownInfo(player));
+		
+		sb.append("]");
+		return sb.toString();
 	}
-
-	public static void logEffectApplied(Player player, BuffInfo info)
+	
+	private static String getEnvironmentRadar(Player player)
 	{
-		if ((player == null) || (info == null) || (info.getSkill() == null))
+		int monsterCount = 0;
+		int itemCount = 0;
+		
+		for (Attackable attackable : World.getInstance().getVisibleObjectsInRange(player, Attackable.class, 1000))
 		{
-			return;
+			monsterCount++;
 		}
-		final Skill skill = info.getSkill();
-		final String effectType = skill.isDebuff() ? "Debuff" : "Buff";
-		LOGGER.info(player.getName() + " effect applied: " + effectType + " - " + skill.getName() + "[" + skill.getId() + "] duration:" + info.getTime() + "s " + getPlayerStatus(player) + " " + getEquipmentInfo(player) + " " + getSpatialInfo(player, player.isCastingNow()) + " " + getTargetContext(player, player.getTarget()) + " " + getEnvironmentRadar(player) + " " + getCooldownInfo(player));
+		
+		for (org.l2jmobius.gameserver.model.item.instance.Item item : World.getInstance().getVisibleObjectsInRange(player, org.l2jmobius.gameserver.model.item.instance.Item.class, 1000))
+		{
+			itemCount++;
+		}
+		
+		return "[Env:NearbyMon:" + monsterCount + " GroundItems:" + itemCount + " InCombat:" + player.isInCombat() + "]";
 	}
-
+	
+	// ========================================================================
+	// Skills Updated Helper
+	// ========================================================================
+	
 	private static String getSkillsUpdatedInfo(Player player)
 	{
 		final StringBuilder sb = new StringBuilder();
 		
-		// Active skills
 		sb.append("[Active:");
 		boolean first = true;
 		for (java.util.Map.Entry<Integer, Skill> entry : player.getSkills().entrySet())
@@ -490,7 +428,6 @@ public class PlayerActionLogger
 		}
 		sb.append("] ");
 		
-		// Passive skills
 		sb.append("[Passive:");
 		first = true;
 		for (java.util.Map.Entry<Integer, Skill> entry : player.getSkills().entrySet())
@@ -508,199 +445,206 @@ public class PlayerActionLogger
 		return sb.toString();
 	}
 	
-	public static void logSkills(Player player)
+	// ========================================================================
+	// Public Log Methods
+	// ========================================================================
+	
+	public static void logSkillsUpdated(Player player)
 	{
-		if (player == null)
+		if (player == null) return;
+		final String skillsInfo = getSkillsUpdatedInfo(player);
+		LOGGER.info("[" + player.getName() + "] [SkillsUpdated]: " + skillsInfo + " " + buildLogSuffix(player, player.getTarget(), player.isCastingNow()));
+		flush();
+	}
+
+	public static void logTargetSelect(Player player, WorldObject target)
+	{
+		if (player == null) return;
+		
+		final long key = ((long) player.getObjectId() << 32) | (target != null ? target.getObjectId() : 0);
+		final Long lastTime = _targetSelectLogTimes.get(key);
+		final long now = System.currentTimeMillis();
+		if ((lastTime != null) && ((now - lastTime) < TARGET_SELECT_LOG_COOLDOWN)) return;
+		_targetSelectLogTimes.put(key, now);
+		
+		LOGGER.info("[" + player.getName() + "] [selected target]: " + getActionTarget(target) + " " + buildLogSuffix(player, target, player.isCastingNow()));
+		flush();
+	}
+
+	public static void logMove(Player player, int x, int y, int z)
+	{
+		if (player == null) return;
+		
+		WorldObject target = player.getTarget();
+		String navInfo = getNavInfo(player, target);
+		// Clear dead targets from navigation to avoid phantom target tracking
+		if ((target instanceof Creature) && ((((Creature) target).getCurrentHp() / ((Creature) target).getMaxHp()) == 0.0))
 		{
-			return;
+			navInfo = "[Nav:None]";
 		}
 		
+		LOGGER.info("[" + player.getName() + "] [moved to]: [" + x + "," + y + "," + z + "] " + getCharStatus(player) + " " + getCharStats(player) + " " + getEquipmentInfo(player) + " " + getSpatialInfo(player, player.isCastingNow()) + " " + navInfo + " " + getEnvironmentRadar(player) + " " + getCooldownInfo(player));
+		flush();
+	}
+
+	public static void logAttack(Player player, WorldObject target)
+	{
+		if (player == null) return;
+		LOGGER.info("[" + player.getName() + "] [attacked]: " + getActionTarget(target) + " " + buildLogSuffix(player, target, player.isCastingNow()));
+		flush();
+	}
+
+	public static void logSkillUse(Player player, int skillId, String skillName, WorldObject target)
+	{
+		if (player == null) return;
+		LOGGER.info("[" + player.getName() + "] [used skill]: " + skillName + "[" + skillId + "] on " + getActionTarget(target) + " " + buildLogSuffix(player, target, player.isCastingNow()));
+		flush();
+	}
+
+	public static void logShotAutoUse(Player player, Item item, boolean enabled)
+	{
+		if ((player == null) || (item == null)) return;
+		final String state = enabled ? "enabled" : "disabled";
+		LOGGER.info("[" + player.getName() + "] " + state + " auto-use for item: " + item.getTemplate().getName() + " (Item ID: " + item.getId() + ")");
+		flush();
+	}
+
+	public static void logItemUse(Player player, Item item)
+	{
+		if ((player == null) || (item == null)) return;
+		LOGGER.info("[" + player.getName() + "] [used item]: " + item.getTemplate().getName() + " [Remaining: " + item.getCount() + "]");
+		flush();
+	}
+
+	public static void logAction(Player player, String actionName, String details)
+	{
+		if (player == null) return;
+		
+		String navInfo = getNavInfo(player, player.getTarget());
+		if ((actionName != null) && actionName.toLowerCase().contains("pickup"))
+		{
+			final WorldObject target = player.getTarget();
+			if ((target instanceof Creature) && ((((Creature) target).getCurrentHp() / ((Creature) target).getMaxHp()) == 0.0))
+			{
+				navInfo = "[Nav:None]";
+			}
+		}
+		
+		LOGGER.info("[" + player.getName() + "] [performed action]: " + actionName + " - " + details + " " + getCharStatus(player) + " " + getCharStats(player) + " " + getEquipmentInfo(player) + " " + getSpatialInfo(player, player.isCastingNow()) + " " + navInfo + " " + getEnvironmentRadar(player) + " " + getCooldownInfo(player));
+	}
+
+	public static void logMobKillDrop(Player player, String mobName, String itemName, long itemCount, boolean autoLooted)
+	{
+		if (player == null) return;
+		
+		String killedDetails = mobName;
+		final WorldObject currentTarget = player.getTarget();
+		if ((currentTarget != null) && currentTarget.isNpc() && currentTarget.getName().equals(mobName))
+		{
+			killedDetails = getActionTarget(currentTarget);
+		}
+		
+		LOGGER.info("[" + player.getName() + "] [killed]: " + killedDetails + " [dropped]: " + itemName + "[" + itemCount + "]" + (autoLooted ? " auto-looted" : " ground") + " " + buildLogSuffix(player, player.getTarget(), false));
+	}
+
+	public static void logShotUsage(Player player, String shotName, long remainingCount)
+	{
+		if (player == null) return;
+		final String timestamp;
+		synchronized (SHOT_TIMESTAMP_FORMAT)
+		{
+			timestamp = SHOT_TIMESTAMP_FORMAT.format(new Date());
+		}
+		LOGGER.info("[" + timestamp + "] [" + player.getName() + "] used " + shotName + " | Remaining: " + remainingCount);
+		flush();
+	}
+
+	public static void logDamageTaken(Player player, double damage, Creature attacker, Skill skill)
+	{
+		if (player == null) return;
+		
+		final long key = ((long) player.getObjectId() << 32) | (attacker != null ? attacker.getObjectId() : 0);
+		final Long lastTime = _damageLogTimes.get(key);
+		final long now = System.currentTimeMillis();
+		if ((lastTime != null) && ((now - lastTime) < DAMAGE_LOG_COOLDOWN)) return;
+		_damageLogTimes.put(key, now);
+		
+		final String skillName = skill != null ? skill.getName() : "N/A";
+		String damageStr = (int) damage + "";
+		if (damage == 0) damageStr = "0 (MISS/BLOCK)";
+		
+		LOGGER.info("[" + player.getName() + "] [took damage]: " + damageStr + " from: " + getActionTarget(attacker) + " skill: " + skillName + " " + buildLogSuffix(player, attacker, player.isCastingNow()));
+		flush();
+	}
+
+	public static void logDamageInflicted(Player player, double damage, Creature target, Skill skill)
+	{
+		if (player == null) return;
+		
+		final long key = ((long) player.getObjectId() << 32) | (target != null ? target.getObjectId() : 0);
+		final Long lastTime = _damageLogTimes.get(key);
+		final long now = System.currentTimeMillis();
+		if ((lastTime != null) && ((now - lastTime) < DAMAGE_LOG_COOLDOWN)) return;
+		_damageLogTimes.put(key, now);
+		
+		final String skillName = skill != null ? skill.getName() : "N/A";
+		String damageStr = (int) damage + "";
+		if (damage == 0) damageStr = "0 (MISS/BLOCK)";
+		
+		LOGGER.info("[" + player.getName() + "] [inflicted damage]: " + damageStr + " to: " + getActionTarget(target) + " skill: " + skillName + " " + buildLogSuffix(player, target, false));
+		flush();
+	}
+
+	public static void logBuffsDebuffs(Player player)
+	{
+		if (player == null) return;
+		final int playerId = player.getObjectId();
+		final Long lastTime = _buffDebuffLogTimes.get(playerId);
+		final long now = System.currentTimeMillis();
+		if ((lastTime != null) && ((now - lastTime) < BUFF_DEBUFF_LOG_COOLDOWN)) return;
+		_buffDebuffLogTimes.put(playerId, now);
+		
+		LOGGER.info("[" + player.getName() + "] [active effects]: " + getBuffDebuffInfo(player) + " " + buildLogSuffix(player, player.getTarget(), player.isCastingNow()));
+	}
+
+	public static void logEffectApplied(Player player, BuffInfo info)
+	{
+		if ((player == null) || (info == null) || (info.getSkill() == null)) return;
+		final Skill skill = info.getSkill();
+		final String effectType = skill.isDebuff() ? "Debuff" : "Buff";
+		LOGGER.info("[" + player.getName() + "] [effect applied]: " + effectType + " - " + skill.getName() + "[" + skill.getId() + "] duration:" + info.getTime() + "s " + buildLogSuffix(player, player.getTarget(), player.isCastingNow()));
+	}
+
+	public static void logSkills(Player player)
+	{
+		if (player == null) return;
 		final int playerId = player.getObjectId();
 		final Long lastTime = _skillsLogTimes.get(playerId);
 		final long now = System.currentTimeMillis();
-		if ((lastTime != null) && ((now - lastTime) < SKILLS_LOG_COOLDOWN))
-		{
-			return;
-		}
+		if ((lastTime != null) && ((now - lastTime) < SKILLS_LOG_COOLDOWN)) return;
 		_skillsLogTimes.put(playerId, now);
-		
 		logSkillsUpdated(player);
 	}
 	
-	private static String getSkillsInfo(Player player)
-	{
-		final StringBuilder sb = new StringBuilder();
-		sb.append("Skills[");
-		boolean first = true;
-		for (java.util.Map.Entry<Integer, Skill> entry : player.getSkills().entrySet())
-		{
-			final Skill skill = entry.getValue();
-			if (!first) sb.append(",");
-			sb.append(skill.getName()).append("(").append(skill.getId()).append(")lvl").append(skill.getLevel());
-			first = false;
-		}
-		sb.append("]");
-		return sb.toString();
-	}
-	
-	private static String getSpatialInfo(Player player, boolean castingState)
-	{
-		final StringBuilder sb = new StringBuilder();
-		sb.append("[Pos:").append(player.getX()).append(",").append(player.getY()).append(",").append(player.getZ());
-		sb.append(" Head:").append(player.getHeading());
-		sb.append(" Sit:").append(player.isSitting());
-		sb.append(" Cast:").append(castingState);
-		sb.append(" Atk:").append(player.isAttackingNow());
-		sb.append(" Dead:").append(player.isAlikeDead());
-		sb.append(" Wt:");
-		final double weightPct = (player.getMaxLoad() > 0) ? ((double) player.getCurrentLoad() / player.getMaxLoad() * 100) : 0;
-		sb.append(String.format("%.1f", weightPct)).append("%]");
-		return sb.toString();
-	}
-	
-	private static String getTargetContext(Player player, WorldObject target)
-	{
-		if (target == null)
-		{
-			return "[Target:None]";
-		}
-		
-		final StringBuilder sb = new StringBuilder();
-		sb.append("[Target:").append(target.getObjectId());
-		
-		if (target.isMonster())
-		{
-			sb.append(" Monster");
-		}
-		else if (target.isPlayer())
-		{
-			sb.append(" Player");
-		}
-		else if (target.isSummon())
-		{
-			sb.append(" Summon");
-		}
-		else if (target.isItem())
-		{
-			sb.append(" Item");
-		}
-		else if (target.isDoor())
-		{
-			sb.append(" Door");
-		}
-		else if (target.isArtefact())
-		{
-			sb.append(" Artefact");
-		}
-		else if (target.isNpc())
-		{
-			sb.append(" Npc");
-		}
-		else
-		{
-			sb.append(" Unknown");
-		}
-		
-		sb.append(" Dist:").append(String.format("%.1f", player.calculateDistance3D(target)));
-		sb.append(" LoS:").append(player.isInsideRadius3D(target, 1500) && GeoEngine.getInstance().canSeeTarget(player, target));
-		
-		if (target instanceof Creature)
-		{
-			final Creature creature = (Creature) target;
-			sb.append(" HP:").append(String.format("%.1f", creature.getCurrentHp() / creature.getMaxHp() * 100)).append("%");
-			
-			// Bug 1: THead should be fetched dynamically.
-			int heading = creature.getHeading();
-			sb.append(" THead:").append(heading).append("]");
-		}
-		else
-		{
-			sb.append("]");
-		}
-		
-		return sb.toString();
-	}
-	
-	private static String getEnvironmentRadar(Player player)
-	{
-		final StringBuilder sb = new StringBuilder();
-		
-		int monsterCount = 0;
-		int itemCount = 0;
-		
-		for (Attackable attackable : World.getInstance().getVisibleObjectsInRange(player, Attackable.class, 1000))
-		{
-			monsterCount++;
-		}
-		
-		for (org.l2jmobius.gameserver.model.item.instance.Item item : World.getInstance().getVisibleObjectsInRange(player, org.l2jmobius.gameserver.model.item.instance.Item.class, 1000))
-		{
-			itemCount++;
-		}
-		
-		sb.append("[Env:").append("NearbyMon:").append(monsterCount);
-		sb.append(" GroundItems:").append(itemCount);
-		sb.append(" InCombat:").append(player.isInCombat());
-		sb.append("]");
-		
-		return sb.toString();
-	}
-
 	// -------------------------------------------------------------------------
 	// 1. ECONOMY: Item Purchases / Sales
 	// -------------------------------------------------------------------------
 
-	/**
-	 * Logs when a player buys an item from an NPC shop.
-	 * Format: [TIMESTAMP] CharacterName BUY Item: [Item Name] (ID: X), Count: Y, Price: Z Adena (NPC: [NPC Name], ID: NPC_ID)
-	 *
-	 * @param player     the player who bought the item
-	 * @param itemName   the name of the purchased item
-	 * @param itemId     the ID of the purchased item
-	 * @param count      the quantity purchased
-	 * @param price      the total price paid
-	 * @param npcName    the name of the NPC merchant
-	 * @param npcId      the ID of the NPC merchant
-	 */
 	public static void logItemPurchase(Player player, String itemName, int itemId, long count, long price, String npcName, int npcId)
 	{
-		if (player == null)
-		{
-			return;
-		}
+		if (player == null) return;
 		final String timestamp;
-		synchronized (SHOT_TIMESTAMP_FORMAT)
-		{
-			timestamp = SHOT_TIMESTAMP_FORMAT.format(new Date());
-		}
-		LOGGER.info("[" + timestamp + "] " + player.getName() + " BUY Item: " + itemName + " (ID: " + itemId + "), Count: " + count + ", Price: " + price + " Adena (NPC: " + npcName + ", ID: " + npcId + ")");
+		synchronized (SHOT_TIMESTAMP_FORMAT) { timestamp = SHOT_TIMESTAMP_FORMAT.format(new Date()); }
+		LOGGER.info("[" + timestamp + "] [" + player.getName() + "] BUY Item: " + itemName + " (ID: " + itemId + "), Count: " + count + ", Price: " + price + " Adena (NPC: " + npcName + ", ID: " + npcId + ")");
 		flush();
 	}
 
-	/**
-	 * Logs when a player sells an item to an NPC shop.
-	 * Format: [TIMESTAMP] CharacterName SELL Item: [Item Name] (ID: X), Count: Y, Price: Z Adena (NPC: [NPC Name], ID: NPC_ID)
-	 *
-	 * @param player     the player who sold the item
-	 * @param itemName   the name of the sold item
-	 * @param itemId     the ID of the sold item
-	 * @param count      the quantity sold
-	 * @param price      the total price received
-	 * @param npcName    the name of the NPC merchant
-	 * @param npcId      the ID of the NPC merchant
-	 */
 	public static void logItemSell(Player player, String itemName, int itemId, long count, long price, String npcName, int npcId)
 	{
-		if (player == null)
-		{
-			return;
-		}
+		if (player == null) return;
 		final String timestamp;
-		synchronized (SHOT_TIMESTAMP_FORMAT)
-		{
-			timestamp = SHOT_TIMESTAMP_FORMAT.format(new Date());
-		}
-		LOGGER.info("[" + timestamp + "] " + player.getName() + " SELL Item: " + itemName + " (ID: " + itemId + "), Count: " + count + ", Price: " + price + " Adena (NPC: " + npcName + ", ID: " + npcId + ")");
+		synchronized (SHOT_TIMESTAMP_FORMAT) { timestamp = SHOT_TIMESTAMP_FORMAT.format(new Date()); }
+		LOGGER.info("[" + timestamp + "] [" + player.getName() + "] SELL Item: " + itemName + " (ID: " + itemId + "), Count: " + count + ", Price: " + price + " Adena (NPC: " + npcName + ", ID: " + npcId + ")");
 		flush();
 	}
 
@@ -708,43 +652,16 @@ public class PlayerActionLogger
 	// 2. CHARACTER PROGRESSION: Skill Learning
 	// -------------------------------------------------------------------------
 
-	/**
-	 * Logs when a player learns a new skill or levels up an existing one.
-	 * Format: [TIMESTAMP] CharacterName learned skill: [Skill Name] (ID: X, Level: Y) [Cost: Z SP/Adena]
-	 *
-	 * @param player    the player who learned the skill
-	 * @param skillName the name of the learned skill
-	 * @param skillId   the ID of the learned skill
-	 * @param skillLevel the level of the learned skill
-	 * @param spCost    the SP cost (0 if none)
-	 * @param adenaCost the Adena cost (0 if none)
-	 */
 	public static void logSkillLearned(Player player, String skillName, int skillId, int skillLevel, int spCost, long adenaCost)
 	{
-		if (player == null)
-		{
-			return;
-		}
+		if (player == null) return;
 		final String timestamp;
-		synchronized (SHOT_TIMESTAMP_FORMAT)
-		{
-			timestamp = SHOT_TIMESTAMP_FORMAT.format(new Date());
-		}
+		synchronized (SHOT_TIMESTAMP_FORMAT) { timestamp = SHOT_TIMESTAMP_FORMAT.format(new Date()); }
 		final StringBuilder costStr = new StringBuilder();
-		if (spCost > 0)
-		{
-			costStr.append(spCost).append(" SP");
-		}
-		if (adenaCost > 0)
-		{
-			if (costStr.length() > 0) costStr.append("/");
-			costStr.append(adenaCost).append(" Adena");
-		}
-		if (costStr.length() == 0)
-		{
-			costStr.append("0 SP");
-		}
-		LOGGER.info("[" + timestamp + "] " + player.getName() + " learned skill: " + skillName + " (ID: " + skillId + ", Level: " + skillLevel + ") [Cost: " + costStr.toString() + "]");
+		if (spCost > 0) costStr.append(spCost).append(" SP");
+		if (adenaCost > 0) { if (costStr.length() > 0) costStr.append("/"); costStr.append(adenaCost).append(" Adena"); }
+		if (costStr.length() == 0) costStr.append("0 SP");
+		LOGGER.info("[" + timestamp + "] [" + player.getName() + "] learned skill: " + skillName + " (ID: " + skillId + ", Level: " + skillLevel + ") [Cost: " + costStr.toString() + "]");
 		flush();
 	}
 
@@ -752,31 +669,12 @@ public class PlayerActionLogger
 	// 3. MOVEMENT & TRAVEL: Teleportation
 	// -------------------------------------------------------------------------
 
-	/**
-	 * Logs when a player teleports from one location to another.
-	 * Format: [TIMESTAMP] CharacterName teleported from [Zone/Coords X,Y,Z] to [Zone/Coords X,Y,Z] via [Method: GK / Scroll / Command]
-	 *
-	 * @param player     the player who teleported
-	 * @param fromX      the source X coordinate
-	 * @param fromY      the source Y coordinate
-	 * @param fromZ      the source Z coordinate
-	 * @param toX        the destination X coordinate
-	 * @param toY        the destination Y coordinate
-	 * @param toZ        the destination Z coordinate
-	 * @param method     the method of teleportation (e.g., "GK", "Scroll", "Command", "Skill")
-	 */
 	public static void logTeleport(Player player, int fromX, int fromY, int fromZ, int toX, int toY, int toZ, String method)
 	{
-		if (player == null)
-		{
-			return;
-		}
+		if (player == null) return;
 		final String timestamp;
-		synchronized (SHOT_TIMESTAMP_FORMAT)
-		{
-			timestamp = SHOT_TIMESTAMP_FORMAT.format(new Date());
-		}
-		LOGGER.info("[" + timestamp + "] " + player.getName() + " teleported from [" + fromX + "," + fromY + "," + fromZ + "] to [" + toX + "," + toY + "," + toZ + "] via [Method: " + method + "]");
+		synchronized (SHOT_TIMESTAMP_FORMAT) { timestamp = SHOT_TIMESTAMP_FORMAT.format(new Date()); }
+		LOGGER.info("[" + timestamp + "] [" + player.getName() + "] teleported from [" + fromX + "," + fromY + "," + fromZ + "] to [" + toX + "," + toY + "," + toZ + "] via [Method: " + method + "]");
 		flush();
 	}
 
@@ -784,48 +682,21 @@ public class PlayerActionLogger
 	// 4. LIFE STATE: Death & Resurrection
 	// -------------------------------------------------------------------------
 
-	/**
-	 * Logs when a player dies (HP reaches 0).
-	 * Format: [TIMESTAMP] CharacterName DIED at [Zone/Coords X,Y,Z]. Killer: [Monster/Player Name] (ID: ID)
-	 *
-	 * @param player     the player who died
-	 * @param killerName the name of the killer
-	 * @param killerId   the ID of the killer
-	 */
 	public static void logDeath(Player player, String killerName, int killerId)
 	{
-		if (player == null)
-		{
-			return;
-		}
+		if (player == null) return;
 		final String timestamp;
-		synchronized (SHOT_TIMESTAMP_FORMAT)
-		{
-			timestamp = SHOT_TIMESTAMP_FORMAT.format(new Date());
-		}
-		LOGGER.info("[" + timestamp + "] " + player.getName() + " DIED at [" + player.getX() + "," + player.getY() + "," + player.getZ() + "]. Killer: " + killerName + " (ID: " + killerId + ")");
+		synchronized (SHOT_TIMESTAMP_FORMAT) { timestamp = SHOT_TIMESTAMP_FORMAT.format(new Date()); }
+		LOGGER.info("[" + timestamp + "] [" + player.getName() + "] DIED at [" + player.getX() + "," + player.getY() + "," + player.getZ() + "]. Killer: " + killerName + " (ID: " + killerId + ")");
 		flush();
 	}
 
-	/**
-	 * Logs when a player resurrects (accepts resurrection or respawns at town).
-	 * Format: [TIMESTAMP] CharacterName RESURRECTED at [Zone/Coords X,Y,Z] via [Method: Town Respawn / Skill Name / Item Name]
-	 *
-	 * @param player the player who resurrected
-	 * @param method the method of resurrection ("Town Respawn", skill name, item name, etc.)
-	 */
 	public static void logResurrection(Player player, String method)
 	{
-		if (player == null)
-		{
-			return;
-		}
+		if (player == null) return;
 		final String timestamp;
-		synchronized (SHOT_TIMESTAMP_FORMAT)
-		{
-			timestamp = SHOT_TIMESTAMP_FORMAT.format(new Date());
-		}
-		LOGGER.info("[" + timestamp + "] " + player.getName() + " RESURRECTED at [" + player.getX() + "," + player.getY() + "," + player.getZ() + "] via [Method: " + method + "]");
+		synchronized (SHOT_TIMESTAMP_FORMAT) { timestamp = SHOT_TIMESTAMP_FORMAT.format(new Date()); }
+		LOGGER.info("[" + timestamp + "] [" + player.getName() + "] RESURRECTED at [" + player.getX() + "," + player.getY() + "," + player.getZ() + "] via [Method: " + method + "]");
 		flush();
 	}
 }
