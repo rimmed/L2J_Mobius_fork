@@ -21,6 +21,8 @@
 package org.l2jmobius.gameserver.util;
 
 import java.text.SimpleDateFormat;
+import java.util.List;
+import org.l2jmobius.gameserver.model.actor.holders.creature.TimeStamp;
 import java.util.Date;
 import java.util.logging.Logger;
 import java.util.Queue;
@@ -32,14 +34,12 @@ import org.l2jmobius.gameserver.model.actor.Npc;
 import org.l2jmobius.gameserver.model.actor.enums.creature.Race;
 import org.l2jmobius.gameserver.model.item.Weapon;
 import org.l2jmobius.gameserver.model.item.instance.Item;
-import org.l2jmobius.gameserver.model.item.instance.Item;
 import org.l2jmobius.gameserver.model.skill.BuffInfo;
 import org.l2jmobius.gameserver.model.skill.Skill;
 import org.l2jmobius.gameserver.model.itemcontainer.Inventory;
 import org.l2jmobius.gameserver.model.World;
 import org.l2jmobius.gameserver.geoengine.GeoEngine;
 import org.l2jmobius.gameserver.model.actor.Attackable;
-import org.l2jmobius.gameserver.model.actor.holders.creature.TimeStamp;
 
 public class PlayerActionLogger
 {
@@ -232,7 +232,7 @@ public class PlayerActionLogger
 	}
 	
 	// ========================================================================
-	//  NPC Trait Extraction
+	// NPC Trait Extraction
 	// ========================================================================
 	
 	/**
@@ -390,20 +390,29 @@ public class PlayerActionLogger
 	
 	private static String getEnvironmentRadar(Player player)
 	{
-		int monsterCount = 0;
-		int itemCount = 0;
-		
-		for (Attackable attackable : World.getInstance().getVisibleObjectsInRange(player, Attackable.class, 1000))
-		{
-			monsterCount++;
-		}
-		
-		for (org.l2jmobius.gameserver.model.item.instance.Item item : World.getInstance().getVisibleObjectsInRange(player, org.l2jmobius.gameserver.model.item.instance.Item.class, 1000))
-		{
-			itemCount++;
-		}
-		
-		return "[Env:NearbyMon:" + monsterCount + " GroundItems:" + itemCount + " InCombat:" + player.isInCombat() + "]";
+	    StringBuilder sb = new StringBuilder();
+	    List<Npc> nearbyMonsters = World.getInstance().getVisibleObjectsInRange(player, Npc.class, 6000);
+	    int monsterCount = nearbyMonsters.size();
+
+	    sb.append("[Env: Monsters Count: ").append(monsterCount).append(", ");
+	
+	    if (monsterCount > 0)
+	    {
+	        for (Npc monster : nearbyMonsters)
+	        {
+	            double distance = player.calculateDistance3D(monster);
+	            sb.append("Monster: ").append(monster.getName()).append(" (NPC_ID: ").append(monster.getId()).append(", Lvl: ").append(monster.getLevel()).append(", Distance: ").append(String.format("%.2f", distance)).append("), ");
+	        }
+	        // Remove the last comma and space
+	        sb.setLength(sb.length() - 2);
+	    }
+
+	    int itemCount = World.getInstance().getVisibleObjectsInRange(player, Item.class, 1000).size();
+	    sb.append(", GroundItems: ").append(itemCount);
+	    sb.append(", InCombat: ").append(player.isInCombat());
+	    sb.append("]");
+
+	    return sb.toString();
 	}
 	
 	// ========================================================================
