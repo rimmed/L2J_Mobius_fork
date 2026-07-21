@@ -423,6 +423,22 @@ def parse_spawn_item(body: bytes) -> dict:
     }
 
 
+def parse_drop_item(body: bytes) -> dict:
+    """Parse DropItem (0x0C) — same format as SpawnItem but with dropper id first."""
+    if len(body) < 33:
+        return {}
+    return {
+        "dropper_id": struct.unpack_from("<i", body, 1)[0],
+        "object_id": struct.unpack_from("<i", body, 5)[0],
+        "item_id": struct.unpack_from("<i", body, 9)[0],
+        "x": struct.unpack_from("<i", body, 13)[0],
+        "y": struct.unpack_from("<i", body, 17)[0],
+        "z": struct.unpack_from("<i", body, 21)[0],
+        "stackable": struct.unpack_from("<i", body, 25)[0] != 0,
+        "count": struct.unpack_from("<i", body, 29)[0],
+    }
+
+
 # NpcInfo binary layout — offsets from packet opcode byte (index 0)
 _NPCINFO_NAME_OFFSET = 122  # byte after opcode where the UTF-16-LE name starts
 
