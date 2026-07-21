@@ -23,6 +23,19 @@ SERVER_ID = 0
 CHAR_SLOT = 0
 
 
+def _print_buffs(char: L2Character):
+    """Print the active buff list for the character."""
+    buffs = char.buffs
+    if not buffs:
+        print(f"[BUFFS]  (none)  limit={char.buff_limit}")
+        return
+    print(f"\n[BUFFS]  {len(buffs)} active (limit={char.buff_limit})")
+    print(f"  {'Skill ID':>10} {'Lv':>4} {'Duration':>8}")
+    print(f"  {'-'*10} {'-'*4} {'-'*8}")
+    for b in sorted(buffs, key=lambda b: b["duration"], reverse=True):
+        print(f"  {b['skill_id']:>10} {b['skill_level']:>4} {b['duration']:>7}s")
+
+
 # ── Login server flow ──
 
 def login_server_flow(sock: socket.socket):
@@ -134,6 +147,7 @@ def game_server_flow(ip: str, port: int, login_name: str,
         received_item_list = False
         received_skill_list = False
         received_etc_status = False
+        received_buffs = False
         data_dump_printed = False
 
         ping_counter = 0
@@ -213,6 +227,12 @@ def game_server_flow(ip: str, port: int, login_name: str,
                         if do:
                             char.radar.remove(do["object_id"])
 
+                    elif pid == 0x7F:  # AbnormalStatusUpdate — buffs
+                        ab = packets.parse_abnormal_status_update(body)
+                        char.apply_abnormal_status_update(ab)
+                        received_buffs = True
+                        _print_buffs(char)
+
                     elif pid == 0x0B:  # SpawnItem — queue for pickup
                         si = packets.parse_spawn_item(body)
                         if si:
@@ -249,7 +269,8 @@ def game_server_flow(ip: str, port: int, login_name: str,
                         break
 
                     all_core = (received_user_info and received_item_list and
-                                received_skill_list and received_etc_status)
+                                received_skill_list and received_etc_status and
+                                received_buffs)
                     timed_out = (time.time() - enter_time) > data_collection_timeout
                     if all_core or timed_out:
                         if timed_out and not all_core:
@@ -293,6 +314,9 @@ def game_server_flow(ip: str, port: int, login_name: str,
                         if oid == current_target_id:
                             current_target_id = 0
                             state = "IDLE"
+                elif pid == 0x7F:  # AbnormalStatusUpdate — buffs
+                    ab = packets.parse_abnormal_status_update(body)
+                    char.apply_abnormal_status_update(ab)
                 elif pid == 0x0B:  # SpawnItem — queue for pickup
                     si = packets.parse_spawn_item(body)
                     if si:

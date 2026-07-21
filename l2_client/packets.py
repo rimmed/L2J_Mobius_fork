@@ -498,3 +498,27 @@ def parse_delete_object(body: bytes) -> dict:
     return {
         "object_id": struct.unpack_from("<i", body, 1)[0],
     }
+
+
+def parse_abnormal_status_update(body: bytes) -> dict:
+    """Parse AbnormalStatusUpdate (0x7F) — buff/debuff list.
+
+    Note: the ``count`` field written by the server may be larger than the
+    number of *actually serialised* entries because inactive effects are
+    skipped inside the loop.  We parse until the packet runs out of bytes.
+    """
+    if len(body) < 3:
+        return {"buffs": []}
+    pos = 3
+    end = len(body)
+    buffs = []
+    while pos + 10 <= end:
+        skill_id = struct.unpack_from("<i", body, pos)[0]; pos += 4
+        skill_level = struct.unpack_from("<H", body, pos)[0]; pos += 2
+        duration = struct.unpack_from("<i", body, pos)[0]; pos += 4
+        buffs.append({
+            "skill_id": skill_id,
+            "skill_level": skill_level,
+            "duration": duration,
+        })
+    return {"buffs": buffs}

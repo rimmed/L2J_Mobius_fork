@@ -131,6 +131,11 @@ class L2Character:
         # ── Radar (nearby NPCs) ──
         self.radar = Radar()
 
+        # ── Buff tracking ──
+        # Base buff limit = 20, +4 from Divine Inspiration (3rd class) = 24 max
+        self.buff_limit: int = 20
+        self.buffs: list[dict] = []  # [{skill_id, skill_level, duration_secs}, ...]
+
     # ------------------------------------------------------------------
     # Populate from parsed packet dicts
     # ------------------------------------------------------------------
@@ -198,6 +203,10 @@ class L2Character:
         self.weapon_armor_penalty = es.get("weapon_armor_penalty", 0)
         self.charm_of_courage = es.get("charm_of_courage", 0)
         self.death_penalty_buff_level = es.get("death_penalty_buff_level", 0)
+
+    def apply_abnormal_status_update(self, ab: dict):
+        """Replace the active buff list from AbnormalStatusUpdate (0x7F)."""
+        self.buffs = ab.get("buffs", [])
 
     # ------------------------------------------------------------------
     # Pretty-print
@@ -326,6 +335,16 @@ class L2Character:
             print(f"\n  [Equipped Items (Paperdoll)]")
             for e in equipped:
                 print(f"    {e}")
+
+        # ── Buffs ──
+        print(f"\n  [Active Buffs — {len(self.buffs)} / {self.buff_limit} slots]")
+        if self.buffs:
+            print(f"  {'Skill ID':>10} {'Lv':>4} {'Duration':>8}")
+            print(f"  {'-'*10} {'-'*4} {'-'*8}")
+            for b in sorted(self.buffs, key=lambda b: b["duration"], reverse=True):
+                print(f"  {b['skill_id']:>10} {b['skill_level']:>4} {b['duration']:>7}s")
+        else:
+            print(f"    (none)")
 
         # ── Inventory ──
         print(f"\n  [Inventory — {len(self.items)} items]")
