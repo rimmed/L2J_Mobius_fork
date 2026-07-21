@@ -3,6 +3,7 @@
 L2J Mobius Interlude client bot — connects, enters world, reads full character data.
 """
 
+import math
 import socket
 import struct
 import time
@@ -10,13 +11,14 @@ import random
 
 import crypto
 import packets
+import npc_data
 from character import L2Character
 
 # ─── CONFIGURATION ───
-SERVER_IP = ""
+SERVER_IP = "192.168.1.200"
 LOGIN_PORT = 2106
-ACCOUNT_LOGIN = ""
-ACCOUNT_PASSWORD = ""
+ACCOUNT_LOGIN = "gather7"
+ACCOUNT_PASSWORD = "S!lver=drag0n"
 SERVER_ID = 0
 CHAR_SLOT = 0
 
@@ -136,7 +138,6 @@ def game_server_flow(ip: str, port: int, login_name: str,
 
         ping_counter = 0
         last_ping = time.time()
-        last_action = time.time()
         cur_x, cur_y, cur_z = 0, 0, 0
         got_coords = False
         data_collection_timeout = 20.0
@@ -160,9 +161,7 @@ def game_server_flow(ip: str, port: int, login_name: str,
                         ui = packets.parse_user_info(body)
                         char.apply_user_info(ui)
                         received_user_info = True
-                        cur_x = char.x
-                        cur_y = char.y
-                        cur_z = char.z
+                        cur_x, cur_y, cur_z = char.x, char.y, char.z
                         got_coords = True
                         print(f"[GS]  ← UserInfo parsed: {char.name} lvl {char.level} "
                               f"HP {char.cur_hp:.0f}/{char.max_hp} "
@@ -191,19 +190,28 @@ def game_server_flow(ip: str, port: int, login_name: str,
                     elif pid == 0x0E:  # StatusUpdate
                         su = packets.parse_status_update(body)
                         char.apply_status_update(su)
-                        attrs = su.get("attributes", {})
-                        attr_str = ", ".join(
-                            f"{packets.STATUS_ATTRIBUTE_NAMES.get(k, f'0x{k:02X}')}={v}"
-                            for k, v in sorted(attrs.items())
-                        )
-                        print(f"[GS]  ← StatusUpdate (objId={su.get('object_id')}): {attr_str}")
+                        char.radar.update_from_status(su)
 
-                    elif pid == 0xA8:  # NetPing during collection
+                    elif pid == 0x16:  # NpcInfo
+                        npc = packets.parse_npc_info(body)
+                        char.radar.add_or_update(npc)
+
+                    elif pid == 0x06:  # Die
+                        die = packets.parse_die(body)
+                        if die:
+                            char.radar.remove(die["object_id"])
+
+                    elif pid == 0x08:  # DeleteObject
+                        do = packets.parse_delete_object(body)
+                        if do:
+                            char.radar.remove(do["object_id"])
+
+                    elif pid == 0xA8:  # NetPing
                         crypto.send_raw(gs, packets.build_net_ping(struct.unpack_from("<I", body, 1)[0]))
                         ping_counter += 1
                         last_ping = time.time()
 
-                    elif pid == 0xF9:  # GameGuard query
+                    elif pid == 0xF9:  # GameGuard
                         gg = bytearray([0xCA]) + struct.pack("<I", 0)
                         crypto.send_raw(gs, packets.pack(gg))
 
@@ -211,7 +219,6 @@ def game_server_flow(ip: str, port: int, login_name: str,
                         print("[GS]  [!] Server closing!")
                         break
 
-                    # Check collection completeness
                     all_core = (received_user_info and received_item_list and
                                 received_skill_list and received_etc_status)
                     timed_out = (time.time() - enter_time) > data_collection_timeout
@@ -220,51 +227,55 @@ def game_server_flow(ip: str, port: int, login_name: str,
                             print("[GS]  ⚠ Data collection timed out, printing partial data.")
                         char.dump()
                         data_dump_printed = True
-                        last_action = time.time()
                         last_ping = time.time()
-                        print("\n[GS]  ── Continuing game loop (movement + ping) ──\n")
-
+                        print("\n[GS]  ── Game loop started ──\n")
                     continue
 
-                # ── Post-collection: normal game loop ──
+                # ── Post-collection: game loop ──
 
-                if pid in (0x04, 0x03, 0x64, 0x4A):
-                    print(f"[GS]  ← 0x{pid:02X} {packets.PACKET_NAMES.get(pid, '?')} ({len(body)}b)")
-
-                if pid == 0x04 and len(body) >= 13:
+                if pid == 0x04 and len(body) >= 13:  # UserInfo update
                     cur_x = struct.unpack_from("<i", body, 1)[0]
                     cur_y = struct.unpack_from("<i", body, 5)[0]
                     cur_z = struct.unpack_from("<i", body, 9)[0]
+                    char.x, char.y, char.z = cur_x, cur_y, cur_z
                     got_coords = True
+                elif pid == 0x16:  # NpcInfo
+                    npc = packets.parse_npc_info(body)
+                    char.radar.add_or_update(npc)
+                elif pid == 0x0E:  # StatusUpdate
+                    su = packets.parse_status_update(body)
+                    char.radar.update_from_status(su)
+                elif pid == 0x06:  # Die
+                    die = packets.parse_die(body)
+                    if die:
+                        char.radar.remove(die["object_id"])
+                elif pid == 0x08:  # DeleteObject
+                    do = packets.parse_delete_object(body)
+                    if do:
+                        char.radar.remove(do["object_id"])
 
-                if pid == 0xA8:  # NetPing
+                # Protocol handlers
+                if pid == 0xA8:
                     crypto.send_raw(gs, packets.build_net_ping(struct.unpack_from("<I", body, 1)[0]))
-                elif pid == 0x26:  # ServerClose
+                elif pid == 0x26:
                     print("[GS]  [!] Server closing!"); break
-                elif pid == 0xF9:  # GameGuard query
+                elif pid == 0xF9:
                     gg = bytearray([0xCA]) + struct.pack("<I", 0)
                     crypto.send_raw(gs, packets.pack(gg))
-                elif pid == 0x4A:  # CreatureSay
+                elif pid == 0x4A:
                     name, msg = packets.parse_creature_say(body)
                     print(f"[GS]      [{name}]: {msg}")
-
-                # Movement every 3 seconds
-                if got_coords and time.time() - last_action > 3:
-                    dx = random.randint(-300, 300)
-                    dy = random.randint(-300, 300)
-                    crypto.send_raw(gs, packets.build_move_to_location(
-                        cur_x + dx, cur_y + dy, cur_z,
-                        cur_x, cur_y, cur_z, 1))
-                    print(f"[GS]  → MoveTo ({cur_x},{cur_y}) → ({cur_x + dx},{cur_y + dy})")
-                    cur_x += dx
-                    cur_y += dy
-                    last_action = time.time()
 
                 # Ping every 5s
                 if time.time() - last_ping > 5:
                     crypto.send_raw(gs, packets.build_net_ping(ping_counter))
                     ping_counter += 1
                     last_ping = time.time()
+
+                # ── Radar maintenance ──
+                if got_coords:
+                    char.radar.prune(cur_x, cur_y)
+                    char.radar.print_if_due(cur_x, cur_y, cur_z)
 
             except socket.timeout:
                 if data_dump_printed and time.time() - last_ping > 5:
@@ -275,9 +286,8 @@ def game_server_flow(ip: str, port: int, login_name: str,
                     print("[GS]  ⚠ Data collection timed out, printing partial data.")
                     char.dump()
                     data_dump_printed = True
-                    last_action = time.time()
                     last_ping = time.time()
-                    print("\n[GS]  ── Continuing game loop (movement + ping) ──\n")
+                    print("\n[GS]  ── Game loop started ──\n")
             except ConnectionError:
                 print("[GS]  Connection lost."); break
 
@@ -290,6 +300,7 @@ def game_server_flow(ip: str, port: int, login_name: str,
 # ── Main ──
 
 def main():
+    npc_data.load_npc_names()
     ls_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     ls_sock.settimeout(10.0)
     try:

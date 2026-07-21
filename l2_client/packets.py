@@ -24,6 +24,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
+import re
 import struct
 
 PACKET_NAMES = {
@@ -139,6 +140,28 @@ def build_say2(msg: str, chat_type: int = 0, target: str = "") -> bytes:
     p += struct.pack("<I", chat_type)
     if chat_type == 2 and target:
         p += target.encode('utf-16-le') + b'\x00\x00'
+    return pack(p)
+
+
+def build_action(target_obj_id: int, x: int, y: int, z: int, shift_click: bool = False) -> bytes:
+    """Packet 0x04: Action — interact/pickup (simple click = 0, shift-click = 1).
+
+    Format: c dddd c
+    """
+    p = bytearray([0x04])
+    p += struct.pack("<iiii", target_obj_id, x, y, z)
+    p += struct.pack("<B", 1 if shift_click else 0)
+    return pack(p)
+
+
+def build_attack_request(target_obj_id: int, x: int, y: int, z: int, shift_click: bool = False) -> bytes:
+    """Packet 0x0A: AttackRequest — initiate auto-attack on a target.
+
+    Format: c dddd c
+    """
+    p = bytearray([0x0A])
+    p += struct.pack("<iiii", target_obj_id, x, y, z)
+    p += struct.pack("<B", 1 if shift_click else 0)
     return pack(p)
 
 
@@ -383,3 +406,79 @@ def parse_creature_say(body: bytes) -> tuple[str, str]:
     pos += 4  # skip chat type (int)
     msg, _ = _read_utf16le_string(body, pos)
     return name, msg
+
+
+def parse_spawn_item(body: bytes) -> dict:
+    """Parse SpawnItem (0x0B) — a dropped item appearing in the world."""
+    if len(body) < 29:
+        return {}
+    return {
+        "object_id": struct.unpack_from("<i", body, 1)[0],
+        "item_id": struct.unpack_from("<i", body, 5)[0],
+        "x": struct.unpack_from("<i", body, 9)[0],
+        "y": struct.unpack_from("<i", body, 13)[0],
+        "z": struct.unpack_from("<i", body, 17)[0],
+        "stackable": struct.unpack_from("<i", body, 21)[0] != 0,
+        "count": struct.unpack_from("<i", body, 25)[0],
+    }
+
+
+# NpcInfo binary layout — offsets from packet opcode byte (index 0)
+_NPCINFO_NAME_OFFSET = 122  # byte after opcode where the UTF-16-LE name starts
+
+
+def parse_npc_info(body: bytes) -> dict:
+    """Parse NpcInfo (0x16) — extract objectId, position, heading, name, title."""
+    if len(body) < _NPCINFO_NAME_OFFSET + 2:
+        return {}
+    obj_id = struct.unpack_from("<i", body, 1)[0]
+    display_id = struct.unpack_from("<i", body, 5)[0]  # real = display_id + 1000000
+    is_attackable = struct.unpack_from("<i", body, 9)[0]
+    x = struct.unpack_from("<i", body, 13)[0]
+    y = struct.unpack_from("<i", body, 17)[0]
+    z = struct.unpack_from("<i", body, 21)[0]
+    heading = struct.unpack_from("<i", body, 25)[0]  # radians * 182.044 = degrees
+    is_alike_dead = body[120]  # 1 = dead or fake-dead
+    is_in_combat = body[119]   # 1 = in combat
+
+    name, pos = _read_utf16le_string(body, _NPCINFO_NAME_OFFSET)
+    title, _ = _read_utf16le_string(body, pos)
+
+    # Extract NPC level from title — format like "Lv 18 [A] Orc Fighter"
+    level = 0
+    if title.startswith("Lv ") or " Lv " in title:
+        match = re.search(r'Lv\s+(\d+)', title)
+        if match:
+            level = int(match.group(1))
+
+    return {
+        "object_id": obj_id,
+        "display_id": display_id,
+        "is_attackable": is_attackable != 0,
+        "x": x, "y": y, "z": z,
+        "heading": heading,
+        "is_alike_dead": is_alike_dead != 0,
+        "is_in_combat": is_in_combat != 0,
+        "name": name,
+        "title": title,
+        "level": level,
+    }
+
+
+def parse_die(body: bytes) -> dict:
+    """Parse Die (0x06) packet."""
+    if len(body) < 9:
+        return {}
+    return {
+        "object_id": struct.unpack_from("<i", body, 1)[0],
+        "can_teleport": struct.unpack_from("<i", body, 5)[0] != 0,
+    }
+
+
+def parse_delete_object(body: bytes) -> dict:
+    """Parse DeleteObject (0x08) packet."""
+    if len(body) < 5:
+        return {}
+    return {
+        "object_id": struct.unpack_from("<i", body, 1)[0],
+    }

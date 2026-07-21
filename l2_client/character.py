@@ -25,6 +25,7 @@ SOFTWARE.
 """
 
 from packets import PAPERDOLL_NAMES, STATUS_ATTRIBUTE_NAMES
+from radar import Radar
 
 
 class L2Character:
@@ -126,6 +127,9 @@ class L2Character:
         self.weapon_armor_penalty: int = 0
         self.charm_of_courage: int = 0
         self.death_penalty_buff_level: int = 0
+
+        # ── Radar (nearby NPCs) ──
+        self.radar = Radar()
 
     # ------------------------------------------------------------------
     # Populate from parsed packet dicts
