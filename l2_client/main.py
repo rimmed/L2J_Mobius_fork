@@ -13,7 +13,7 @@ import npc_data
 import packets
 from character import L2Character
 
-# ─── CONFIGURATION ───
+# --- CONFIGURATION ---
 SERVER_IP = "127.0.0.1"
 LOGIN_PORT = 2106
 ACCOUNT_LOGIN = ""
@@ -35,7 +35,7 @@ def _print_buffs(char: L2Character):
         print(f"  {b['skill_id']:>10} {b['skill_level']:>4} {b['duration']:>7}s")
 
 
-# ── Login server flow ──
+# -- Login server flow --
 
 def login_server_flow(sock: socket.socket):
     di = crypto.decrypt_init_packet(crypto.recv_packet(sock), crypto.L2MOBIUS_STATIC_KEY)
@@ -79,7 +79,7 @@ def login_server_flow(sock: socket.socket):
     return (p1, p2, ch['ip'], ch['port'], ACCOUNT_LOGIN, l1, l2)
 
 
-# ── GS flow ──
+# -- GS flow --
 
 def game_server_flow(ip: str, port: int, login_name: str,
                      play_ok1: int, play_ok2: int,
@@ -140,7 +140,7 @@ def game_server_flow(ip: str, port: int, login_name: str,
         crypto.send_raw(gs, packets.build_enter_world())
         print("[GS]  Entered world!\n")
 
-        # ── Collect character data into L2Character ──
+        # -- Collect character data into L2Character --
         char = L2Character()
         received_user_info = False
         received_item_list = False
@@ -156,7 +156,7 @@ def game_server_flow(ip: str, port: int, login_name: str,
         data_collection_timeout = 20.0
         enter_time = time.time()
 
-        # ── Combat state ──
+        # -- Combat state --
         current_target_id: int = 0
         state: str = "IDLE"          # IDLE | MOVING | SELECT | ATTACKING | LOOTING
         attack_attempts: int = 0
@@ -178,7 +178,7 @@ def game_server_flow(ip: str, port: int, login_name: str,
                     continue
                 pid = body[0]
 
-                # ── Data-collection phase ──
+                # -- Data-collection phase --
                 if not data_dump_printed:
                     if pid == 0x04:  # UserInfo
                         ui = packets.parse_user_info(body)
@@ -288,10 +288,10 @@ def game_server_flow(ip: str, port: int, login_name: str,
                                      if i["item_id"] in char.ALL_SOULSHOT_IDS and i["count"] > 0]
                         print(f"[GS]  [*] Soulshots in inv: {ss_in_inv}")
                         char.enable_auto_soulshot(gs)
-                        print("\n[GS]  ── Game loop started ──\n")
+                        print("\n[GS]  -- Game loop started --\n")
                     continue
 
-                # ── Post-collection: game loop ──
+                # -- Post-collection: game loop --
 
                 if pid == 0x04 and len(body) >= 13:  # UserInfo update
                     cur_x = struct.unpack_from("<i", body, 1)[0]
@@ -368,11 +368,11 @@ def game_server_flow(ip: str, port: int, login_name: str,
                     ping_counter += 1
                     last_ping = time.time()
 
-                # ── Radar maintenance ──
+                # -- Radar maintenance --
                 if got_coords:
                     char.radar.prune(cur_x, cur_y)
 
-                # ── Combat state machine ──
+                # -- Combat state machine --
                 if got_coords and time.time() - last_action >= 1.0:
                     if state == "LOOTING":
                         # Pick up queued drops: move to nearest, then send Action
@@ -480,7 +480,7 @@ def game_server_flow(ip: str, port: int, login_name: str,
                     char.dump()
                     data_dump_printed = True
                     last_ping = time.time()
-                    print("\n[GS]  ── Game loop started ──\n")
+                    print("\n[GS]  -- Game loop started --\n")
             except ConnectionError:
                 print("[GS]  Connection lost."); break
 
@@ -490,7 +490,7 @@ def game_server_flow(ip: str, port: int, login_name: str,
         gs.close()
 
 
-# ── Main ──
+# -- Main --
 
 def main():
     npc_data.load_npc_names()

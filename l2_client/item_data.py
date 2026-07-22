@@ -98,10 +98,10 @@ def load_item_data(path: str = DEFAULT_ITEM_XML_PATH):
 
 
 def get_item_name(item_id: int) -> str:
-    """Return the human‑readable name for an item ID, or ``""``."""
+    """Return the human-readable name for an item ID, or ``""``."""
     return _ITEM_NAME.get(item_id, "")
 
 
 def get_item_grade(item_id: int) -> int:
-    """Return the crystal grade for an item ID (0‑5), or -1 if unknown."""
+    """Return the crystal grade for an item ID (0-5), or -1 if unknown."""
     return _ITEM_GRADE.get(item_id, -1)

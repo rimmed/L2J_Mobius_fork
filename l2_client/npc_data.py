@@ -1,5 +1,5 @@
 """
-Lineage2 C6 Interlude — NPC name lookup from server XML datapack.
+Lineage2 C6 Interlude -- NPC name lookup from server XML datapack.
 
 The MIT License (MIT)
 
@@ -26,7 +26,6 @@ SOFTWARE.
 
 import os
 import re
-import xml.etree.ElementTree as ET
 
 # Path to the npc stats XML files relative to the project root
 DEFAULT_NPC_XML_PATH = "../L2J_Mobius/L2J_Mobius_CT_0_Interlude/dist/game/data/stats/npcs"
@@ -37,20 +36,21 @@ _loaded = False
 
 
 def load_npc_names(path: str = DEFAULT_NPC_XML_PATH) -> dict[int, str]:
-    """Parse all NPC XML files and return a {npc_id: name} lookup table.
+    """
+    Parse all NPC XML files and return a {npc_id: name} lookup table.
 
     Also populates the internal ``_npc_levels`` dict with the level
     attribute (e.g. ``<npc id="20120" level="4" …>``).
 
     :param path: directory containing ``20000-20099.xml`` etc.
-    :returns: dict mapping npc template id → name
+    :returns: dict mapping npc template id -> name
     """
     global _npc_names, _npc_levels, _loaded
     if _loaded:
         return _npc_names
 
     if not os.path.isdir(path):
-        print(f"[NPC_DATA]  ⚠ Directory not found: {path}")
+        print(f"[NPC_DATA]  !! Directory not found: {path}")
         _loaded = True
         return _npc_names
 
@@ -79,7 +79,7 @@ def load_npc_names(path: str = DEFAULT_NPC_XML_PATH) -> dict[int, str]:
 
 
 def get_npc_name(template_id: int) -> str:
-    """Return the human‑readable name for an NPC template ID, or ``""``."""
+    """Return the human-readable name for an NPC template ID, or ``""``."""
     return _npc_names.get(template_id, "")
 
 

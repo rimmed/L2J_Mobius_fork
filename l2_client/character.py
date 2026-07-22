@@ -34,7 +34,7 @@ class L2Character:
     """Holds all character data received from the server."""
 
     def __init__(self):
-        # ── UserInfo fields ──
+        # -- UserInfo fields --
         self.name: str = ""
         self.title: str = ""
         self.object_id: int = 0
@@ -117,11 +117,11 @@ class L2Character:
         self.paperdoll: dict[str, int] = {}
         self.paperdoll_display: dict[str, int] = {}
 
-        # ── Other packet data ──
+        # -- Other packet data --
         self.items: list[dict] = []
         self.skills: list[dict] = []
         self.status_updates: list[dict] = []
-        # ── EtcStatus fields ──
+        # -- EtcStatus fields --
         self.charges: int = 0
         self.weight_penalty: int = 0
         self.message_refusal: int = 0
@@ -130,10 +130,10 @@ class L2Character:
         self.charm_of_courage: int = 0
         self.death_penalty_buff_level: int = 0
 
-        # ── Radar (nearby NPCs) ──
+        # -- Radar (nearby NPCs) --
         self.radar = Radar()
 
-        # ── Buff tracking ──
+        # -- Buff tracking --
         # Base buff limit = 20, +4 from Divine Inspiration (3rd class) = 24 max
         self.buff_limit: int = 20
         self.buffs: list[dict] = []  # [{skill_id, skill_level, duration_secs}, ...]
@@ -214,7 +214,7 @@ class L2Character:
     # Auto soulshot
     # ------------------------------------------------------------------
 
-    # All soulshot item IDs (no‑grade through S)
+    # All soulshot item IDs (no-grade through S)
     ALL_SOULSHOT_IDS = [1835, 1463, 1464, 1465, 1466, 1467]
 
     # Weapon grade -> recommended soulshot ID
@@ -225,10 +225,10 @@ class L2Character:
     @staticmethod
     def _item_grade(item_id: int) -> int:
         """
-        Return crystal grade from the XML item datapack (0‑5).
+        Return crystal grade from the XML item datapack (0-5).
 
         Items without a ``crystal_type`` declaration default to grade 0
-        (no‑grade"), which covers beginner weapons and quest items.
+        (no-grade"), which covers beginner weapons and quest items.
         """
         g = item_data.get_item_grade(item_id)
         return g if g >= 0 else 0
@@ -284,7 +284,7 @@ class L2Character:
         print("  CHARACTER DATA DUMP")
         print("=" * 70)
 
-        # ── Basic Info ──
+        # -- Basic Info --
         print(f"\n  Name:           {self.name}")
         print(f"  Title:          {self.title}")
         print(f"  Object ID:      {self.object_id}")
@@ -294,25 +294,25 @@ class L2Character:
         print(f"  Is Noble:       {self.is_noble}")
         print(f"  Is Hero:        {self.is_hero}")
 
-        # ── Level & XP ──
+        # -- Level & XP --
         print(f"\n  Level:          {self.level}")
         print(f"  EXP:            {self.exp}")
 
-        # ── HP / MP / CP / SP ──
+        # -- HP / MP / CP / SP --
         print(f"\n  HP:             {self.cur_hp:.0f} / {self.max_hp}")
         print(f"  MP:             {self.cur_mp:.0f} / {self.max_mp}")
         print(f"  CP:             {self.cur_cp:.0f} / {self.max_cp}")
         print(f"  SP:             {self.sp}")
 
-        # ── Load ──
+        # -- Load --
         print(f"\n  Load:           {self.cur_load} / {self.max_load}")
         print(f"  Inventory Limit:{self.inventory_limit} slots")
 
-        # ── Stats ──
+        # -- Stats --
         print(f"\n  STR: {self.STR}   DEX: {self.DEX}   CON: {self.CON}")
         print(f"  INT: {self.INT}   WIT: {self.WIT}   MEN: {self.MEN}")
 
-        # ── Combat Stats ──
+        # -- Combat Stats --
         print(f"\n  P.Atk:          {self.p_atk}")
         print(f"  P.Atk.Spd:      {self.p_atk_spd}")
         print(f"  P.Def:          {self.p_def}")
@@ -323,7 +323,7 @@ class L2Character:
         print(f"  Accuracy:       {self.accuracy}")
         print(f"  Critical:       {self.critical}")
 
-        # ── Speed ──
+        # -- Speed --
         print(f"\n  Run Spd:        {self.run_spd}")
         print(f"  Walk Spd:       {self.walk_spd}")
         print(f"  Swim Run Spd:   {self.swim_run_spd}")
@@ -331,19 +331,19 @@ class L2Character:
         print(f"  Move Multiplier:{self.move_multiplier:.4f}")
         print(f"  Atk.Spd Mult:   {self.atk_spd_multiplier:.4f}")
 
-        # ── Position ──
+        # -- Position --
         print(f"\n  Position:       ({self.x}, {self.y}, {self.z})")
         print(f"  Collision:      radius={self.collision_radius:.1f}, height={self.collision_height:.1f}")
         print(f"  Running:        {self.is_running}")
         print(f"  Fishing:        {self.is_fishing}  (fish pos: {self.fish_x}, {self.fish_y}, {self.fish_z})")
 
-        # ── PvP / Karma ──
+        # -- PvP / Karma --
         print(f"\n  PvP Kills:      {self.pvp_kills}")
         print(f"  PK Kills:       {self.pk_kills}")
         print(f"  Karma:          {self.karma}")
         print(f"  PvP Flag:       {self.pvp_flag}")
 
-        # ── Clan ──
+        # -- Clan --
         print(f"\n  Clan ID:        {self.clan_id}")
         print(f"  Clan Crest:     {self.clan_crest_id}")
         print(f"  Large Crest:    {self.clan_crest_large_id}")
@@ -352,26 +352,26 @@ class L2Character:
         print(f"  Clan Privileges:{self.clan_privileges}")
         print(f"  Pledge Class:   {self.pledge_class}")
 
-        # ── Mount / Store ──
+        # -- Mount / Store --
         print(f"\n  Mount Type:     {self.mount_type}")
         print(f"  Mount NPC ID:   {self.mount_npc_id}")
         print(f"  Private Store:  {self.private_store_type}")
 
-        # ── Recoms ──
+        # -- Recoms --
         print(f"\n  Recommends:     left={self.recom_left}, received={self.recom_have}")
 
-        # ── Cubics ──
+        # -- Cubics --
         if self.cubics:
             print(f"\n  Cubics:         {self.cubics}")
 
-        # ── Appearance ──
+        # -- Appearance --
         print(f"\n  Hair Style:     {self.hair_style}")
         print(f"  Hair Color:     {self.hair_color}")
         print(f"  Face:           {self.face}")
         print(f"  Name Color:     0x{self.name_color:08X}")
         print(f"  Title Color:    0x{self.title_color:08X}")
 
-        # ── Etc Status ──
+        # -- Etc Status --
         print("\n  [EtcStatusUpdate]")
         print(f"  Charges:        {self.charges}")
         print(f"  Weight Penalty: {self.weight_penalty}")
@@ -381,7 +381,7 @@ class L2Character:
         print(f"  CharmOfCourage: {self.charm_of_courage}")
         print(f"  Death Penalty:  lvl {self.death_penalty_buff_level}")
 
-        # ── Status Updates ──
+        # -- Status Updates --
         if self.status_updates:
             for su in self.status_updates:
                 attrs = su.get("attributes", {})
@@ -391,7 +391,7 @@ class L2Character:
                         name = STATUS_ATTRIBUTE_NAMES.get(aid, f"0x{aid:02X}")
                         print(f"    {name}: {val}")
 
-        # ── Equipped Items (Paperdoll) ──
+        # -- Equipped Items (Paperdoll) --
         equipped = []
         for slot_name in PAPERDOLL_NAMES:
             obj_id = self.paperdoll.get(slot_name, 0)
@@ -403,7 +403,7 @@ class L2Character:
             for e in equipped:
                 print(f"    {e}")
 
-        # ── Buffs ──
+        # -- Buffs --
         print(f"\n  [Active Buffs -- {len(self.buffs)} / {self.buff_limit} slots]")
         if self.buffs:
             print(f"  {'Skill ID':>10} {'Lv':>4} {'Duration':>8}")
@@ -413,7 +413,7 @@ class L2Character:
         else:
             print("    (none)")
 
-        # ── Inventory ──
+        # -- Inventory --
         print(f"\n  [Inventory -- {len(self.items)} items]")
         if self.items:
             print(f"  {'ID':>10} {'Object ID':>10} {'Count':>8} {'Ench':>4} {'Equip':>5} {'Slot':>8}  {'Type':>6}")
@@ -424,7 +424,7 @@ class L2Character:
         else:
             print("    (empty)")
 
-        # ── Skill List ──
+        # -- Skill List --
         print(f"\n  [Skill List -- {len(self.skills)} skills]")
         if self.skills:
             passive_count = sum(1 for s in self.skills if s['passive'])

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Lineage2 C6 Interlude — TCP proxy relay with packet dumping and command injection.
+Lineage2 C6 Interlude -- TCP proxy relay with packet dumping and command injection.
 
 The MIT License (MIT)
 
@@ -32,12 +32,12 @@ Start the proxy **before** launching the game client::
 
 The proxy listens on two ports:
 
-* ``:2106`` — login server relay → ``127.0.0.1:2106``
-* ``:7776`` — game server relay → ``127.0.0.1:7777``
+* ``:2106`` -- login server relay -> ``192.168.1.200:2106``
+* ``:7776`` -- game server relay -> ``192.168.1.200:7777``
 
 Configure your game client (or ``l2.ini`` / hosts file) to connect to
 ``127.0.0.1`` instead of the real server.  Every packet passing through is
-printed with its opcode and direction (C→S or S→C).
+printed with its opcode and direction (C->S or S->C).
 
 COMMANDS
 --------
@@ -52,7 +52,7 @@ The REPL prompt ``[CMD] >>`` accepts the following commands:
 
     attack <targetObjId> [x y z] [--shift]
         Attack *targetObjId*.  If coordinates are omitted the last known
-        position is used.  ``--shift`` sends a shift‑click attack.
+        position is used.  ``--shift`` sends a shift-click attack.
 
     pickup <objectId> [x y z]
         Pick up the ground item identified by *objectId*.
@@ -78,19 +78,19 @@ import struct
 import threading
 import time
 
-# ─── CONFIGURATION ───────────────────────────────────────────────────────
+# --- CONFIGURATION -------------------------------------------------------
 
 LOGIN_LOCAL_PORT  = 2106
-LOGIN_REMOTE_HOST = "127.0.0.1"
+LOGIN_REMOTE_HOST = "192.168.1.200"
 LOGIN_REMOTE_PORT = 2106
 
 GAME_LOCAL_PORT   = 7776
-GAME_REMOTE_HOST  = "127.0.0.1"
+GAME_REMOTE_HOST  = "192.168.1.200"
 GAME_REMOTE_PORT  = 7777
 
 BUFFER_SIZE = 65536
 
-# ─── Packet names (from packets.py) ─────────────────────────────────────
+# --- Packet names (from packets.py) -------------------------------------
 
 PACKET_NAMES_S2C = {
     0x00: "KeyPacket",    0x01: "MoveToLoc",    0x03: "CharInfo",
@@ -113,10 +113,10 @@ PACKET_NAMES_C2S = {
     0xF9: "GGReply",
 }
 
-# ─── Packet helpers ──────────────────────────────────────────────────────
+# --- Packet helpers ------------------------------------------------------
 
 def pack(payload: bytearray) -> bytes:
-    """Prepend 2‑byte little‑endian length header."""
+    """Prepend 2-byte little-endian length header."""
     return struct.pack("<H", len(payload) + 2) + bytes(payload)
 
 
@@ -150,11 +150,11 @@ def build_attack_packet(target_obj_id: int, x: int, y: int, z: int, shift: int =
     return pack(p)
 
 
-# ─── RELAY ───────────────────────────────────────────────────────────────
+# --- RELAY ---------------------------------------------------------------
 
 def relay(src: socket.socket, dst: socket.socket, label: str, names: dict):
     """
-    Bidirectional copier.  On the C→S link, *name* may be replaced by
+    Bidirectional copier.  On the C->S link, *name* may be replaced by
     ``inject_queue`` to let the command thread push data.
     """
 
@@ -166,7 +166,7 @@ def relay(src: socket.socket, dst: socket.socket, label: str, names: dict):
         if not data:
             return False
 
-        # ── packet dump ──
+        # -- packet dump --
         while len(data) >= 2:
             sz = struct.unpack_from("<H", data)[0]
             if len(data) < sz:
@@ -186,10 +186,10 @@ def relay(src: socket.socket, dst: socket.socket, label: str, names: dict):
     while True:
         r, _, _ = select.select([src, dst], [], [], 1.0)
         if src in r:
-            if not copy_one_way(src, dst, "C→S"):
+            if not copy_one_way(src, dst, "C->S"):
                 break
         if dst in r:
-            if not copy_one_way(dst, src, "S→C"):
+            if not copy_one_way(dst, src, "S->C"):
                 break
 
     print(f"[RELAY {label}]  Connection closed")
@@ -197,14 +197,14 @@ def relay(src: socket.socket, dst: socket.socket, label: str, names: dict):
     dst.close()
 
 
-# ─── Login listener ──────────────────────────────────────────────────────
+# --- Login listener ------------------------------------------------------
 
 def login_listener():
     ls = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     ls.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     ls.bind(("0.0.0.0", LOGIN_LOCAL_PORT))
     ls.listen(1)
-    print(f"[RELAY LOGIN]  Listening on :{LOGIN_LOCAL_PORT} → {LOGIN_REMOTE_HOST}:{LOGIN_REMOTE_PORT}")
+    print(f"[RELAY LOGIN]  Listening on :{LOGIN_LOCAL_PORT} -> {LOGIN_REMOTE_HOST}:{LOGIN_REMOTE_PORT}")
     while True:
         client, addr = ls.accept()
         print(f"[RELAY LOGIN]  Client connected from {addr}")
@@ -214,9 +214,9 @@ def login_listener():
         threading.Thread(target=relay, args=(client, remote, "LOGIN", PACKET_NAMES_C2S), daemon=True).start()
 
 
-# ─── Game listener (with injection support) ─────────────────────────────
+# --- Game listener (with injection support) -----------------------------
 
-_game_upstream: socket.socket | None = None   # client → server socket
+_game_upstream: socket.socket | None = None   # client -> server socket
 _game_inject_lock = threading.Lock()
 
 
@@ -226,7 +226,7 @@ def game_listener():
     ls.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     ls.bind(("0.0.0.0", GAME_LOCAL_PORT))
     ls.listen(1)
-    print(f"[RELAY GAME]   Listening on :{GAME_LOCAL_PORT} → {GAME_REMOTE_HOST}:{GAME_REMOTE_PORT}")
+    print(f"[RELAY GAME]   Listening on :{GAME_LOCAL_PORT} -> {GAME_REMOTE_HOST}:{GAME_REMOTE_PORT}")
     while True:
         client, addr = ls.accept()
         print(f"[RELAY GAME]   Client connected from {addr}")
@@ -235,7 +235,7 @@ def game_listener():
         print("[RELAY GAME]   Connected to remote")
 
         with _game_inject_lock:
-            _game_upstream = remote   # injection target: remote = client→server
+            _game_upstream = remote   # injection target: remote = client->server
 
         threading.Thread(target=_relay_with_inject, args=(client, remote), daemon=True).start()
 
@@ -260,7 +260,7 @@ def _relay_with_inject(client: socket.socket, server_side: socket.socket):
                 body = buf[2:sz]
                 pid = body[0] if body else 0
                 name = PACKET_NAMES_C2S.get(pid, f"0x{pid:02X}")
-                print(f"[RELAY GAME] C→S {name}  {sz}B")
+                print(f"[RELAY GAME] C->S {name}  {sz}B")
                 buf = buf[sz:]
             try:
                 server_side.sendall(data)
@@ -281,7 +281,7 @@ def _relay_with_inject(client: socket.socket, server_side: socket.socket):
                 body = buf[2:sz]
                 pid = body[0] if body else 0
                 name = PACKET_NAMES_S2C.get(pid, f"0x{pid:02X}")
-                print(f"[RELAY GAME] S→C {name}  {sz}B")
+                print(f"[RELAY GAME] S->C {name}  {sz}B")
                 buf = buf[sz:]
             try:
                 client.sendall(data)
@@ -295,20 +295,20 @@ def _relay_with_inject(client: socket.socket, server_side: socket.socket):
     server_side.close()
 
 
-# ─── Packet injection ────────────────────────────────────────────────────
+# --- Packet injection ----------------------------------------------------
 
 def inject_raw_data(data: bytes):
-    """Queue *data* onto the game‑server upstream connection."""
+    """Queue *data* onto the game-server upstream connection."""
     with _game_inject_lock:
         if _game_upstream is None:
-            print("[INJECT]  ⚠ No game‑server connection")
+            print("[INJECT]  !! No game-server connection")
             return False
         try:
             _game_upstream.sendall(data)
-            print(f"[INJECT]  → {len(data)} bytes injected")
+            print(f"[INJECT]  -> {len(data)} bytes injected")
             return True
         except Exception as e:
-            print(f"[INJECT]  ⚠ Send error: {e}")
+            print(f"[INJECT]  !! Send error: {e}")
             return False
 
 
@@ -324,7 +324,7 @@ def parse_int(arg: str) -> int:
 
 
 CMDS_HELP = """
-COMMANDS ───────────────────────────────────────────────────────────────────
+COMMANDS -------------------------------------------------------------------
   say <message>              Broadcast a message in public chat
   move <x> <y> <z>           Move to coordinates
   attack <targetObjId> [x y z]  Attack a target (uses current position if
@@ -332,7 +332,7 @@ COMMANDS ───────────────────────�
   pickup <objectId> [x y z]  Pick up an item
   help                       Show this message
   exit                       Quit the proxy
-───────────────────────────────────────────────────────────────────────────
+---------------------------------------------------------------------------
 """
 
 
@@ -412,12 +412,12 @@ def command_loop():
                 print("[CMD]  Type 'help' for available commands")
 
         except (ValueError, IndexError) as e:
-            print(f"[CMD]  ⚠ Parse error: {e}")
+            print(f"[CMD]  !! Parse error: {e}")
         except Exception as e:
-            print(f"[CMD]  ⚠ Error: {e}")
+            print(f"[CMD]  !! Error: {e}")
 
 
-# ─── MAIN ────────────────────────────────────────────────────────────────
+# --- MAIN ----------------------------------------------------------------
 
 def main():
     print("=" * 70)

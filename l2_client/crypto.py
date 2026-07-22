@@ -1,5 +1,5 @@
 """
-Lineage2 C6 Interlude — cryptographic primitives and low-level network I/O.
+Lineage2 C6 Interlude -- cryptographic primitives and low-level network I/O.
 
 The MIT License (MIT)
 
@@ -30,20 +30,21 @@ import struct
 from Crypto.Cipher import Blowfish
 
 L2MOBIUS_STATIC_KEY = b'\x6b\x60\xcb\x5b\x82\xce\x90\xb1\xcc\x2b\x6c\x55\x6c\x6c\x6c\x6c'
-"""Static 16‑byte blowfish key used for the initial login‑server packet exchange."""
+"""Static 16-byte blowfish key used for the initial login-server packet exchange."""
 
 
 def blowfish_ecb_crypt(data: bytearray, key: bytes, encrypt: bool) -> bytearray:
-    """Blowfish ECB encrypt/decrypt with LE ↔ BE conversion to match L2J ``BlowfishEngine``.
+    """
+    Blowfish ECB encrypt/decrypt with LE ↔ BE conversion to match L2J ``BlowfishEngine``.
 
-    L2J stores 64‑bit blocks in *big‑endian* order before feeding them to the
-    Blowfish cipher, and swaps back to little‑endian afterwards.  This function
-    replicates that behaviour in‑place.
+    L2J stores 64-bit blocks in *big-endian* order before feeding them to the
+    Blowfish cipher, and swaps back to little-endian afterwards.  This function
+    replicates that behaviour in-place.
 
     :param data: buffer whose length is a multiple of 8 bytes
-    :param key:  blowfish key (4‑56 bytes)
+    :param key:  blowfish key (4-56 bytes)
     :param encrypt: ``True`` to encrypt, ``False`` to decrypt
-    :returns: *data* (modified in‑place) for convenience
+    :returns: *data* (modified in-place) for convenience
     """
     be = bytearray(len(data))
     for i in range(0, len(data), 8):
@@ -58,13 +59,14 @@ def blowfish_ecb_crypt(data: bytearray, key: bytes, encrypt: bool) -> bytearray:
 
 
 def unscramble_modulus(mod: bytearray):
-    """Unscramble the 128‑byte RSA modulus received in the init packet (opcode ``0x00``).
+    """
+    Unscramble the 128-byte RSA modulus received in the init packet (opcode ``0x00``).
 
     The original L2 client scrambles the modulus before sending it; this mirrors
-    the server‑side ``unscrambleModulus`` method in
+    the server-side ``unscrambleModulus`` method in
     ``org.l2jmobius.commons.crypt.NewCrypt``.
 
-    :param mod: 128‑byte bytearray — modified in‑place
+    :param mod: 128-byte bytearray -- modified in-place
     """
     for i in range(0x40):
         mod[0x40 + i] ^= mod[i]
@@ -77,12 +79,13 @@ def unscramble_modulus(mod: bytearray):
 
 
 def dec_xor_pass(b: bytearray):
-    """Second‑stage decryption used by the login‑server init packet.
+    """
+    Second-stage decryption used by the login-server init packet.
 
-    Starting from the end of the payload, every 4‑byte word is XOR‑decrypted
-    with a rolling key derived from the previous plain‑text word.
+    Starting from the end of the payload, every 4-byte word is XOR-decrypted
+    with a rolling key derived from the previous plain-text word.
 
-    :param b: decrypted Blowfish output — modified in‑place
+    :param b: decrypted Blowfish output -- modified in-place
     :returns: *b* for convenience
     """
     s, sp, pk = len(b), len(b) - 8, struct.unpack_from("<I", b, len(b) - 8)[0]
@@ -97,10 +100,11 @@ def dec_xor_pass(b: bytearray):
 
 
 def append_l2_checksum(b: bytearray):
-    """Calculate and append the L2 packet checksum (XOR of all preceding DWORDs).
+    """
+    Calculate and append the L2 packet checksum (XOR of all preceding DWORDs).
 
-    Writes the 4‑byte checksum into the last 4 bytes of the buffer.  The caller
-    must have already reserved space (e.g. by padding with four zero‑bytes).
+    Writes the 4-byte checksum into the last 4 bytes of the buffer.  The caller
+    must have already reserved space (e.g. by padding with four zero-bytes).
 
     :param b: bytearray whose last 4 bytes will be overwritten
     """
@@ -111,13 +115,14 @@ def append_l2_checksum(b: bytearray):
 
 
 def decrypt_init_packet(raw: bytes, key: bytes) -> bytearray:
-    """Full two‑stage decryption of the login‑server init packet (opcode ``0x00``).
+    """
+    Full two-stage decryption of the login-server init packet (opcode ``0x00``).
 
-    1. Blowfish‑ECB decrypt with the static key.
-    2. Rolling‑XOR decrypt the result.
+    1. Blowfish-ECB decrypt with the static key.
+    2. Rolling-XOR decrypt the result.
 
     :param raw: raw bytes received from the login server
-    :param key: 16‑byte blowfish key (``L2MOBIUS_STATIC_KEY``)
+    :param key: 16-byte blowfish key (``L2MOBIUS_STATIC_KEY``)
     :returns: decrypted bytearray
     """
     b = bytearray(raw)
@@ -126,7 +131,8 @@ def decrypt_init_packet(raw: bytes, key: bytes) -> bytearray:
 
 
 def decrypt_l2_packet(raw: bytes, key: bytes) -> bytearray:
-    """Blowfish‑ECB decrypt a standard (post‑login) L2 packet.
+    """
+    Blowfish-ECB decrypt a standard (post-login) L2 packet.
 
     :param raw: raw bytes received from the server
     :param key: session blowfish key (received in the init packet)
@@ -137,17 +143,18 @@ def decrypt_l2_packet(raw: bytes, key: bytes) -> bytearray:
 
 
 def encrypt_l2_packet(raw: bytes, key: bytes) -> bytes:
-    """Encrypt and frame a standard L2 packet for sending.
+    """
+    Encrypt and frame a standard L2 packet for sending.
 
     Steps:
-    1. Pad to 8‑byte alignment + 4 extra zero‑bytes for the checksum.
+    1. Pad to 8-byte alignment + 4 extra zero-bytes for the checksum.
     2. Compute and append the XOR checksum.
-    3. Blowfish‑ECB encrypt.
-    4. Prepend a 2‑byte little‑endian length header.
+    3. Blowfish-ECB encrypt.
+    4. Prepend a 2-byte little-endian length header.
 
-    :param raw: plaintext packet body (without the 2‑byte length header)
+    :param raw: plaintext packet body (without the 2-byte length header)
     :param key: session blowfish key
-    :returns: fully‑framed, encrypted bytes ready for ``sendall()``
+    :returns: fully-framed, encrypted bytes ready for ``sendall()``
     """
     b = bytearray(raw)
     b.extend(b'\x00' * 4)
@@ -159,7 +166,8 @@ def encrypt_l2_packet(raw: bytes, key: bytes) -> bytes:
 
 
 def send_encrypted(sock: socket.socket, body: bytes, key: bytes):
-    """Convenience wrapper: encrypt *body* with *key* and send over *sock*.
+    """
+    Convenience wrapper: encrypt *body* with *key* and send over *sock*.
 
     :param sock: connected TCP socket
     :param body: plaintext packet body
@@ -169,14 +177,15 @@ def send_encrypted(sock: socket.socket, body: bytes, key: bytes):
 
 
 def recv_packet(sock: socket.socket) -> bytes:
-    """Read a single L2 packet from the socket.
+    """
+    Read a single L2 packet from the socket.
 
-    Reads the 2‑byte length header, then loops until the entire payload has
-    been received.  Does **not** decrypt — returns raw bytes.
+    Reads the 2-byte length header, then loops until the entire payload has
+    been received.  Does **not** decrypt -- returns raw bytes.
 
     :param sock: connected TCP socket
     :raises ConnectionError: if the header or payload cannot be read completely
-    :returns: raw packet body (without the 2‑byte length header)
+    :returns: raw packet body (without the 2-byte length header)
     """
     h = sock.recv(2)
     if not h or len(h) != 2:
@@ -192,11 +201,12 @@ def recv_packet(sock: socket.socket) -> bytes:
 
 
 def send_raw(sock: socket.socket, data: bytes):
-    """Send raw bytes over the socket (no encryption, no length header).
+    """
+    Send raw bytes over the socket (no encryption, no length header).
 
-    Used for game‑server packets that use the plain protocol (opcodes
+    Used for game-server packets that use the plain protocol (opcodes
     ``0x00`` ProtocolVersion, ``0x0D`` CharacterSelect, ``0x03`` EnterWorld,
-    etc.) where the two‑byte length header is already included by
+    etc.) where the two-byte length header is already included by
     ``packets.pack()``.
 
     :param sock: connected TCP socket

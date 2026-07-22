@@ -1,5 +1,5 @@
 """
-Lineage2 C6 Interlude — radar class for tracking nearby NPCs.
+Lineage2 C6 Interlude -- radar class for tracking nearby NPCs.
 
 The MIT License (MIT)
 
@@ -32,7 +32,8 @@ import npc_data
 
 
 class Radar:
-    """Tracks nearby NPCs (monsters) within a configurable range.
+    """
+    Tracks nearby NPCs (monsters) within a configurable range.
 
     Each entry is keyed by NPC ``object_id`` and holds::
 
@@ -63,7 +64,8 @@ class Radar:
 
     @property
     def entries(self) -> dict[int, dict]:
-        """Return a reference to the internal entries dict.
+        """
+        Return a reference to the internal entries dict.
 
         Entries are keyed by NPC ``object_id``.  Each value is a dict
         with the shape described in the class docstring.
@@ -74,9 +76,10 @@ class Radar:
 
     @property
     def range_units(self) -> int:
-        """The detection radius in game units (default 5000).
+        """
+        The detection radius in game units (default 5000).
 
-        NPCs whose 2‑D distance from the character exceeds this value
+        NPCs whose 2-D distance from the character exceeds this value
         are pruned via :meth:`prune`.
 
         :rtype: int
@@ -85,7 +88,8 @@ class Radar:
 
     @property
     def count(self) -> int:
-        """Return the number of NPCs currently tracked.
+        """
+        Return the number of NPCs currently tracked.
 
         :rtype: int
         """
@@ -96,10 +100,11 @@ class Radar:
     # ------------------------------------------------------------------
 
     def add_or_update(self, npc: dict):
-        """Add or update a radar entry from a parsed NpcInfo (0x16) dict.
+        """
+        Add or update a radar entry from a parsed NpcInfo (0x16) dict.
 
         Skipped when the NPC is not attackable or is dead
-        (``is_alike_dead``).  The human‑readable *name* and *level* are
+        (``is_alike_dead``).  The human-readable *name* and *level* are
         resolved via :meth:`_resolve_name` and :meth:`_resolve_level`,
         which fall back to the XML datapack loaded by
         :mod:`npc_data`.
@@ -128,7 +133,8 @@ class Radar:
         }
 
     def update_from_status(self, su: dict):
-        """Apply HP / MP updates from a StatusUpdate (0x0E) packet.
+        """
+        Apply HP / MP updates from a StatusUpdate (0x0E) packet.
 
         Only entries that already exist in the radar are updated.
         Unknown object IDs are silently ignored.
@@ -149,10 +155,11 @@ class Radar:
             self._entries[oid]["max_mp"] = attrs[0x0C]
 
     def remove(self, object_id: int):
-        """Remove an NPC from the radar by its runtime ``object_id``.
+        """
+        Remove an NPC from the radar by its runtime ``object_id``.
 
         Safe to call with an ID that is not currently tracked
-        — no error is raised.
+        -- no error is raised.
 
         :param object_id: NPC object ID from Die / DeleteObject packets
         """
@@ -163,9 +170,10 @@ class Radar:
     # ------------------------------------------------------------------
 
     def prune(self, char_x: int, char_y: int):
-        """Recalculate distances and remove entries beyond :attr:`range_units`.
+        """
+        Recalculate distances and remove entries beyond :attr:`range_units`.
 
-        Should be called once per game‑loop tick (after position updates)
+        Should be called once per game-loop tick (after position updates)
         to keep the radar bounded.
 
         :param char_x: character's current X coordinate
@@ -187,7 +195,8 @@ class Radar:
 
     def print_if_due(self, char_x: int, char_y: int, char_z: int,
                      interval: float = 1.0) -> bool:
-        """Print a formatted radar table once every *interval* seconds.
+        """
+        Print a formatted radar table once every *interval* seconds.
 
         The table includes::
 
@@ -230,11 +239,12 @@ class Radar:
 
     @staticmethod
     def _resolve_name(npc: dict) -> str:
-        """Determine a human‑readable name for an NPC.
+        """
+        Determine a human-readable name for an NPC.
 
         Resolution order:
 
-        1. ``npc["name"]`` from the packet (non‑empty for named NPCs).
+        1. ``npc["name"]`` from the packet (non-empty for named NPCs).
         2. ``npc["title"]`` after stripping ``Lv N``, ``[A]``, ``[G]``
            prefix markers.
         3. XML datapack lookup via :func:`npc_data.get_npc_name`.
@@ -266,7 +276,8 @@ class Radar:
 
     @staticmethod
     def _resolve_level(npc: dict) -> int:
-        """Determine an NPC's level, falling back to the XML datapack.
+        """
+        Determine an NPC's level, falling back to the XML datapack.
 
         1. Use ``npc["level"]`` if > 0 (parsed from the title field).
         2. Fall back to :func:`npc_data.get_npc_level`.
