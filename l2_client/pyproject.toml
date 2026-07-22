@@ -7,3 +7,43 @@ requires-python = ">=3.12"
 dependencies = [
     "pycryptodome>=3.23.0",
 ]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.15.22",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "F",    # pyflakes
+    "W",    # pycodestyle warnings
+    "I",    # isort
+    "D",    # pydocstyle
+]
+ignore = [
+    "D100",  # Missing docstring in public module
+    "D104",  # Missing docstring in public package
+    "D105",  # Missing docstring in magic method
+    "D107",  # Missing docstring in __init__
+    "D205",  # 1 blank line required between summary line and description
+    "D212",  # Multi-line docstring summary should start at the first line
+    "D400",  # First line should end with a period
+    "D401",  # First line should be in imperative mood
+    "D415",  # First line should end with a period, question mark, or exclamation point
+    "E501",  # Line too long
+    "E702",  # Multiple statements on one line (semicolon) — deliberate in parser code
+    "D102",  # Missing docstring in public method — not needed for @property, dump(), main()
+    "D103",  # Missing docstring in public function — covered by module-level docstrings
+    "F841",  # Local variable assigned but not used — benign c-style tuple unpacking remnants
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
