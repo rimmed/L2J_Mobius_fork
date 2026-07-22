@@ -1,5 +1,5 @@
 """
-Lineage2 C6 Interlude — character data container and pretty-printer.
+Lineage2 C6 Interlude -- character data container and pretty-printer.
 
 The MIT License (MIT)
 
@@ -24,6 +24,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
+import item_data
+import packets
 from packets import PAPERDOLL_NAMES, STATUS_ATTRIBUTE_NAMES
 from radar import Radar
 
@@ -209,6 +211,71 @@ class L2Character:
         self.buffs = ab.get("buffs", [])
 
     # ------------------------------------------------------------------
+    # Auto soulshot
+    # ------------------------------------------------------------------
+
+    # All soulshot item IDs (no‑grade through S)
+    ALL_SOULSHOT_IDS = [1835, 1463, 1464, 1465, 1466, 1467]
+
+    # Weapon grade -> recommended soulshot ID
+    SOULSHOT_BY_GRADE = {
+        0: 1835, 1: 1463, 2: 1464, 3: 1465, 4: 1466, 5: 1467,
+    }
+
+    @staticmethod
+    def _item_grade(item_id: int) -> int:
+        """
+        Return crystal grade from the XML item datapack (0‑5).
+
+        Items without a ``crystal_type`` declaration default to grade 0
+        (no‑grade"), which covers beginner weapons and quest items.
+        """
+        g = item_data.get_item_grade(item_id)
+        return g if g >= 0 else 0
+
+    @property
+    def equipped_weapon_id(self) -> int:
+        return self.paperdoll_display.get("RHAND", 0) or self.paperdoll_display.get("RHAND2", 0)
+
+    def enable_auto_soulshot(self, sock) -> bool:
+        """
+        Enable auto soulshot for the equipped weapon's grade.
+
+        Uses the XML item datapack to determine the weapon's crystal grade.
+        Prints diagnostic messages explaining why activation failed.
+        """
+        weapon_id = self.equipped_weapon_id
+        if weapon_id <= 0:
+            print("[GS]  !! No weapon equipped -- soulshot skipped")
+            return False
+
+        grade = self._item_grade(weapon_id)
+        weapon_name = item_data.get_item_name(weapon_id) or f"id={weapon_id}"
+        target_ss = self.SOULSHOT_BY_GRADE.get(grade)
+        if not target_ss:
+            print(f"[GS]  !! Unknown grade for weapon {weapon_id} (grade {grade})")
+            return False
+
+        # Check if the required soulshot type is in inventory
+        has_correct = any(item["item_id"] == target_ss and item["count"] > 0 for item in self.items)
+        if not has_correct:
+            available = [item["item_id"] for item in self.items
+                         if item["item_id"] in self.ALL_SOULSHOT_IDS and item["count"] > 0]
+            if available:
+                print(f"[GS]  !! Weapon '{weapon_name}' ({weapon_id}) is grade {grade} -- "
+                      f"needs soulshot itemId={target_ss}")
+                print(f"[GS]     You have soulshots: {available} -- wrong grade for this weapon")
+            else:
+                print(f"[GS]  !! No soulshots in inventory "
+                      f"(weapon='{weapon_name}', needs itemId={target_ss})")
+            return False
+
+        sock.sendall(packets.build_auto_soulshot(target_ss, enable=True))
+        print(f"[GS]  -> Auto soulshot enabled "
+              f"(itemId={target_ss}, weapon='{weapon_name}', grade={grade})")
+        return True
+
+    # ------------------------------------------------------------------
     # Pretty-print
     # ------------------------------------------------------------------
 
@@ -305,7 +372,7 @@ class L2Character:
         print(f"  Title Color:    0x{self.title_color:08X}")
 
         # ── Etc Status ──
-        print(f"\n  [EtcStatusUpdate]")
+        print("\n  [EtcStatusUpdate]")
         print(f"  Charges:        {self.charges}")
         print(f"  Weight Penalty: {self.weight_penalty}")
         print(f"  Msg Refusal:    {self.message_refusal}")
@@ -332,22 +399,22 @@ class L2Character:
             if obj_id != 0 or disp_id != 0:
                 equipped.append(f"{slot_name}: objId={obj_id}, itemId={disp_id}")
         if equipped:
-            print(f"\n  [Equipped Items (Paperdoll)]")
+            print("\n  [Equipped Items (Paperdoll)]")
             for e in equipped:
                 print(f"    {e}")
 
         # ── Buffs ──
-        print(f"\n  [Active Buffs — {len(self.buffs)} / {self.buff_limit} slots]")
+        print(f"\n  [Active Buffs -- {len(self.buffs)} / {self.buff_limit} slots]")
         if self.buffs:
             print(f"  {'Skill ID':>10} {'Lv':>4} {'Duration':>8}")
             print(f"  {'-'*10} {'-'*4} {'-'*8}")
             for b in sorted(self.buffs, key=lambda b: b["duration"], reverse=True):
                 print(f"  {b['skill_id']:>10} {b['skill_level']:>4} {b['duration']:>7}s")
         else:
-            print(f"    (none)")
+            print("    (none)")
 
         # ── Inventory ──
-        print(f"\n  [Inventory — {len(self.items)} items]")
+        print(f"\n  [Inventory -- {len(self.items)} items]")
         if self.items:
             print(f"  {'ID':>10} {'Object ID':>10} {'Count':>8} {'Ench':>4} {'Equip':>5} {'Slot':>8}  {'Type':>6}")
             print(f"  {'-'*10} {'-'*10} {'-'*8} {'-'*4} {'-'*5} {'-'*8}  {'-'*6}")
@@ -358,7 +425,7 @@ class L2Character:
             print("    (empty)")
 
         # ── Skill List ──
-        print(f"\n  [Skill List — {len(self.skills)} skills]")
+        print(f"\n  [Skill List -- {len(self.skills)} skills]")
         if self.skills:
             passive_count = sum(1 for s in self.skills if s['passive'])
             active_count = len(self.skills) - passive_count

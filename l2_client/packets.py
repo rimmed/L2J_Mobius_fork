@@ -1,5 +1,5 @@
 """
-Lineage2 C6 Interlude — packet builders and parsers for all known server packets.
+Lineage2 C6 Interlude -- packet builders and parsers for all known server packets.
 
 The MIT License (MIT)
 
@@ -74,7 +74,7 @@ def _read_utf16le_string(data: bytes, offset: int) -> tuple[str, int]:
 
 
 # ---------------------------------------------------------------------------
-# Packet builders (client → server)
+# Packet builders (client -> server)
 # ---------------------------------------------------------------------------
 
 def pack(p: bytearray) -> bytes:
@@ -144,7 +144,8 @@ def build_say2(msg: str, chat_type: int = 0, target: str = "") -> bytes:
 
 
 def build_action(target_obj_id: int, x: int, y: int, z: int, shift_click: bool = False) -> bytes:
-    """Packet 0x04: Action — interact/pickup (simple click = 0, shift-click = 1).
+    """
+    Packet 0x04: Action -- interact/pickup (simple click = 0, shift-click = 1).
 
     Format: c dddd c
     """
@@ -155,7 +156,8 @@ def build_action(target_obj_id: int, x: int, y: int, z: int, shift_click: bool =
 
 
 def build_attack_request(target_obj_id: int, x: int, y: int, z: int, shift_click: bool = False) -> bytes:
-    """Packet 0x0A: AttackRequest — initiate auto-attack on a target.
+    """
+    Packet 0x0A: AttackRequest -- initiate auto-attack on a target.
 
     Format: c dddd c
     """
@@ -165,12 +167,24 @@ def build_attack_request(target_obj_id: int, x: int, y: int, z: int, shift_click
     return pack(p)
 
 
+def build_auto_soulshot(item_id: int, enable: bool = True) -> bytes:
+    """
+    ExPacket (client->server) 0xD0 0x05: RequestAutoSoulShot -- enable/disable auto soulshot use.
+
+    Format: D0 (H)05 dd
+    """
+    p = bytearray([0xD0])
+    p += struct.pack("<H", 0x05)  # sub-opcode
+    p += struct.pack("<ii", item_id, 1 if enable else 0)
+    return pack(p)
+
+
 # ---------------------------------------------------------------------------
-# Packet parsers (server → client)
+# Packet parsers (server -> client)
 # ---------------------------------------------------------------------------
 
 def parse_user_info(body: bytes) -> dict:
-    """Parse UserInfo (0x04) packet — comprehensive character info."""
+    """Parse UserInfo (0x04) packet -- comprehensive character info."""
     if len(body) < 13:
         return {}
     info = {}
@@ -317,7 +331,7 @@ def parse_user_info(body: bytes) -> dict:
 
 
 def parse_item_list(body: bytes) -> dict:
-    """Parse ItemList (0x1B) — inventory contents."""
+    """Parse ItemList (0x1B) -- inventory contents."""
     if len(body) < 5:
         return {"show_window": False, "items": []}
     pos = 1
@@ -409,7 +423,7 @@ def parse_creature_say(body: bytes) -> tuple[str, str]:
 
 
 def parse_spawn_item(body: bytes) -> dict:
-    """Parse SpawnItem (0x0B) — a dropped item appearing in the world."""
+    """Parse SpawnItem (0x0B) -- a dropped item appearing in the world."""
     if len(body) < 29:
         return {}
     return {
@@ -424,7 +438,7 @@ def parse_spawn_item(body: bytes) -> dict:
 
 
 def parse_drop_item(body: bytes) -> dict:
-    """Parse DropItem (0x0C) — same format as SpawnItem but with dropper id first."""
+    """Parse DropItem (0x0C) -- same format as SpawnItem but with dropper id first."""
     if len(body) < 33:
         return {}
     return {
@@ -439,12 +453,12 @@ def parse_drop_item(body: bytes) -> dict:
     }
 
 
-# NpcInfo binary layout — offsets from packet opcode byte (index 0)
+# NpcInfo binary layout -- offsets from packet opcode byte (index 0)
 _NPCINFO_NAME_OFFSET = 122  # byte after opcode where the UTF-16-LE name starts
 
 
 def parse_npc_info(body: bytes) -> dict:
-    """Parse NpcInfo (0x16) — extract objectId, position, heading, name, title."""
+    """Parse NpcInfo (0x16) -- extract objectId, position, heading, name, title."""
     if len(body) < _NPCINFO_NAME_OFFSET + 2:
         return {}
     obj_id = struct.unpack_from("<i", body, 1)[0]
@@ -460,7 +474,7 @@ def parse_npc_info(body: bytes) -> dict:
     name, pos = _read_utf16le_string(body, _NPCINFO_NAME_OFFSET)
     title, _ = _read_utf16le_string(body, pos)
 
-    # Extract NPC level from title — format like "Lv 18 [A] Orc Fighter"
+    # Extract NPC level from title -- format like "Lv 18 [A] Orc Fighter"
     level = 0
     if title.startswith("Lv ") or " Lv " in title:
         match = re.search(r'Lv\s+(\d+)', title)
@@ -501,7 +515,8 @@ def parse_delete_object(body: bytes) -> dict:
 
 
 def parse_abnormal_status_update(body: bytes) -> dict:
-    """Parse AbnormalStatusUpdate (0x7F) — buff/debuff list.
+    """
+    Parse AbnormalStatusUpdate (0x7F) -- buff/debuff list.
 
     Note: the ``count`` field written by the server may be larger than the
     number of *actually serialised* entries because inactive effects are

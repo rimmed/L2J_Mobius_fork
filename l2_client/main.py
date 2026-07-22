@@ -1,24 +1,23 @@
 #!/usr/bin/env python3
-"""
-L2J Mobius Interlude client bot — connects, enters world, reads full character data.
-"""
+# L2J Mobius Interlude client bot -- connects, enters world, reads full character data.
 
-import math
+
+import random
 import socket
 import struct
 import time
-import random
 
 import crypto
-import packets
+import item_data
 import npc_data
+import packets
 from character import L2Character
 
 # ─── CONFIGURATION ───
-SERVER_IP = "192.168.1.200"
+SERVER_IP = "127.0.0.1"
 LOGIN_PORT = 2106
-ACCOUNT_LOGIN = "gather7"
-ACCOUNT_PASSWORD = "S!lver=drag0n"
+ACCOUNT_LOGIN = ""
+ACCOUNT_PASSWORD = ""
 SERVER_ID = 0
 CHAR_SLOT = 0
 
@@ -163,6 +162,9 @@ def game_server_flow(ip: str, port: int, login_name: str,
         attack_attempts: int = 0
         last_action = time.time()
         pending_loot: list[dict] = []  # items to pick up during LOOTING
+        looting_since: float = 0.0     # timestamp when LOOTING started
+        kills: int = 0                 # monsters killed so far
+        MAX_KILLS = 5                  # stop after this many kills
 
         while True:
             try:
@@ -184,7 +186,7 @@ def game_server_flow(ip: str, port: int, login_name: str,
                         received_user_info = True
                         cur_x, cur_y, cur_z = char.x, char.y, char.z
                         got_coords = True
-                        print(f"[GS]  ← UserInfo parsed: {char.name} lvl {char.level} "
+                        print(f"[GS]  <- UserInfo parsed: {char.name} lvl {char.level} "
                               f"HP {char.cur_hp:.0f}/{char.max_hp} "
                               f"MP {char.cur_mp:.0f}/{char.max_mp} "
                               f"CP {char.cur_cp:.0f}/{char.max_cp} "
@@ -194,17 +196,17 @@ def game_server_flow(ip: str, port: int, login_name: str,
                     elif pid == 0x1B:  # ItemList
                         char.apply_item_list(packets.parse_item_list(body))
                         received_item_list = True
-                        print(f"[GS]  ← ItemList parsed: {len(char.items)} items")
+                        print(f"[GS]  <- ItemList parsed: {len(char.items)} items")
 
                     elif pid == 0x58:  # SkillList
                         char.apply_skill_list(packets.parse_skill_list(body))
                         received_skill_list = True
-                        print(f"[GS]  ← SkillList parsed: {len(char.skills)} skills")
+                        print(f"[GS]  <- SkillList parsed: {len(char.skills)} skills")
 
                     elif pid == 0xF3:  # EtcStatusUpdate
                         char.apply_etc_status_update(packets.parse_etc_status_update(body))
                         received_etc_status = True
-                        print(f"[GS]  ← EtcStatusUpdate parsed: "
+                        print(f"[GS]  <- EtcStatusUpdate parsed: "
                               f"charges={char.charges} "
                               f"weight_penalty={char.weight_penalty}")
 
@@ -227,33 +229,33 @@ def game_server_flow(ip: str, port: int, login_name: str,
                         if do:
                             char.radar.remove(do["object_id"])
 
-                    elif pid == 0x7F:  # AbnormalStatusUpdate — buffs
+                    elif pid == 0x7F:  # AbnormalStatusUpdate -- buffs
                         ab = packets.parse_abnormal_status_update(body)
                         char.apply_abnormal_status_update(ab)
                         received_buffs = True
                         _print_buffs(char)
 
-                    elif pid == 0x0B:  # SpawnItem — queue for pickup
+                    elif pid == 0x0B:  # SpawnItem -- queue for pickup
                         si = packets.parse_spawn_item(body)
                         if si:
                             pending_loot.append(si)
-                            print(f"[GS]  ← SpawnItem: objId={si['object_id']} "
+                            print(f"[GS]  <- SpawnItem: objId={si['object_id']} "
                                   f"itemId={si['item_id']} count={si['count']} "
                                   f"(queued #{len(pending_loot)})")
 
-                    elif pid == 0x0C:  # DropItem — queue for pickup
+                    elif pid == 0x0C:  # DropItem -- queue for pickup
                         di = packets.parse_drop_item(body)
                         if di:
                             pending_loot.append(di)
-                            print(f"[GS]  ← DropItem: objId={di['object_id']} "
+                            print(f"[GS]  <- DropItem: objId={di['object_id']} "
                                   f"itemId={di['item_id']} count={di['count']} "
                                   f"(queued #{len(pending_loot)})")
 
-                    elif pid == 0x0D:  # GetItem — loot confirmation
+                    elif pid == 0x0D:  # GetItem -- loot confirmation
                         if len(body) >= 13:
                             picker_id = struct.unpack_from("<i", body, 1)[0]
                             item_id = struct.unpack_from("<i", body, 5)[0]
-                            print(f"[GS]  ← GetItem: picker={picker_id} itemId={item_id}")
+                            print(f"[GS]  <- GetItem: picker={picker_id} itemId={item_id}")
 
                     elif pid == 0xA8:  # NetPing
                         crypto.send_raw(gs, packets.build_net_ping(struct.unpack_from("<I", body, 1)[0]))
@@ -274,10 +276,18 @@ def game_server_flow(ip: str, port: int, login_name: str,
                     timed_out = (time.time() - enter_time) > data_collection_timeout
                     if all_core or timed_out:
                         if timed_out and not all_core:
-                            print("[GS]  ⚠ Data collection timed out, printing partial data.")
+                            print("[GS]  !! Data collection timed out, printing partial data.")
                         char.dump()
                         data_dump_printed = True
                         last_ping = time.time()
+                        # Auto-enable soulshots
+                        print(f"[GS]  [*] Weapon: {char.equipped_weapon_id} "
+                              f"(paperdoll RHAND: {char.paperdoll_display.get('RHAND', '?')}, "
+                              f"RHAND2: {char.paperdoll_display.get('RHAND2', '?')})")
+                        ss_in_inv = [i["item_id"] for i in char.items
+                                     if i["item_id"] in char.ALL_SOULSHOT_IDS and i["count"] > 0]
+                        print(f"[GS]  [*] Soulshots in inv: {ss_in_inv}")
+                        char.enable_auto_soulshot(gs)
                         print("\n[GS]  ── Game loop started ──\n")
                     continue
 
@@ -301,11 +311,17 @@ def game_server_flow(ip: str, port: int, login_name: str,
                         oid = die["object_id"]
                         char.radar.remove(oid)
                         if oid == current_target_id:
-                            print(f"[GS]  ← Die: target {current_target_id} killed!")
+                            print(f"[GS]  <- Die: target {current_target_id} killed!")
                             current_target_id = 0
                             state = "LOOTING"
+                            looting_since = time.time()
+                            kills += 1
                             attack_attempts = 0
                             last_action = time.time()
+                            print(f"[GS]  Kills: {kills}/{MAX_KILLS}")
+                            if kills >= MAX_KILLS:
+                                print(f"[GS]  [DONE] Reached {MAX_KILLS} kills -- stopping")
+                                return
                 elif pid == 0x08:  # DeleteObject
                     do = packets.parse_delete_object(body)
                     if do:
@@ -314,25 +330,25 @@ def game_server_flow(ip: str, port: int, login_name: str,
                         if oid == current_target_id:
                             current_target_id = 0
                             state = "IDLE"
-                elif pid == 0x7F:  # AbnormalStatusUpdate — buffs
+                elif pid == 0x7F:  # AbnormalStatusUpdate -- buffs
                     ab = packets.parse_abnormal_status_update(body)
                     char.apply_abnormal_status_update(ab)
-                elif pid == 0x0B:  # SpawnItem — queue for pickup
+                elif pid == 0x0B:  # SpawnItem -- queue for pickup
                     si = packets.parse_spawn_item(body)
                     if si:
                         pending_loot.append(si)
-                        print(f"[GS]  ← SpawnItem: objId={si['object_id']} itemId={si['item_id']} "
+                        print(f"[GS]  <- SpawnItem: objId={si['object_id']} itemId={si['item_id']} "
                               f"count={si['count']} (queued #{len(pending_loot)})")
-                elif pid == 0x0C:  # DropItem — queue for pickup
+                elif pid == 0x0C:  # DropItem -- queue for pickup
                     di = packets.parse_drop_item(body)
                     if di:
                         pending_loot.append(di)
-                        print(f"[GS]  ← DropItem: objId={di['object_id']} itemId={di['item_id']} "
+                        print(f"[GS]  <- DropItem: objId={di['object_id']} itemId={di['item_id']} "
                               f"count={di['count']} (queued #{len(pending_loot)})")
-                elif pid == 0x0D:  # GetItem — loot confirmation
+                elif pid == 0x0D:  # GetItem -- loot confirmation
                     if len(body) >= 13:
                         item_id = struct.unpack_from("<i", body, 5)[0]
-                        print(f"[GS]  ← GetItem: itemId={item_id} collected")
+                        print(f"[GS]  <- GetItem: itemId={item_id} collected")
 
                 # Protocol handlers
                 if pid == 0xA8:
@@ -365,7 +381,7 @@ def game_server_flow(ip: str, port: int, login_name: str,
                                          key=lambda si: (cur_x - si["x"])**2 + (cur_y - si["y"])**2)
                             dist = ((cur_x - nearest["x"])**2 + (cur_y - nearest["y"])**2) ** 0.5
                             if dist < 80:
-                                print(f"[GS]  → Pickup loot: objId={nearest['object_id']} "
+                                print(f"[GS]  -> Pickup loot: objId={nearest['object_id']} "
                                       f"itemId={nearest['item_id']}")
                                 crypto.send_raw(gs, packets.build_action(
                                     nearest["object_id"], nearest["x"], nearest["y"], nearest["z"],
@@ -378,7 +394,7 @@ def game_server_flow(ip: str, port: int, login_name: str,
                                     cur_x, cur_y, cur_z, 1))
                                 cur_x, cur_y = nearest["x"], nearest["y"]
                                 last_action = time.time()
-                        elif time.time() - last_action > 5:
+                        elif time.time() - looting_since > 5:
                             state = "IDLE"
 
                     elif state == "MOVING":
@@ -386,7 +402,7 @@ def game_server_flow(ip: str, port: int, login_name: str,
                             t = char.radar.entries[current_target_id]
                             dist = ((cur_x - t["x"]) ** 2 + (cur_y - t["y"]) ** 2) ** 0.5
                             if dist < 60:
-                                print(f"[GS]  → Select target: '{t['name']}' objId={current_target_id}")
+                                print(f"[GS]  -> Select target: '{t['name']}' objId={current_target_id}")
                                 crypto.send_raw(gs, packets.build_action(
                                     current_target_id, cur_x, cur_y, cur_z, shift_click=False))
                                 state = "SELECT"
@@ -402,7 +418,7 @@ def game_server_flow(ip: str, port: int, login_name: str,
 
                     elif state == "SELECT":
                         if time.time() - last_action > 0.3:
-                            print(f"[GS]  → AttackRequest on {current_target_id}")
+                            print(f"[GS]  -> AttackRequest on {current_target_id}")
                             crypto.send_raw(gs, packets.build_attack_request(
                                 current_target_id, cur_x, cur_y, cur_z))
                             attack_attempts = 1
@@ -417,12 +433,12 @@ def game_server_flow(ip: str, port: int, login_name: str,
                         elif time.time() - last_action > 3:
                             attack_attempts += 1
                             if attack_attempts > 10:
-                                print(f"[GS]  ⚠ Giving up on {current_target_id} after 10 attempts")
+                                print(f"[GS]  !! Giving up on {current_target_id} after 10 attempts")
                                 current_target_id = 0
                                 attack_attempts = 0
                                 state = "IDLE"
                             else:
-                                print(f"[GS]  → AttackRequest retry #{attack_attempts} on {current_target_id}")
+                                print(f"[GS]  -> AttackRequest retry #{attack_attempts} on {current_target_id}")
                                 crypto.send_raw(gs, packets.build_attack_request(
                                     current_target_id, cur_x, cur_y, cur_z))
                                 last_action = time.time()
@@ -460,7 +476,7 @@ def game_server_flow(ip: str, port: int, login_name: str,
                     ping_counter += 1
                     last_ping = time.time()
                 if not data_dump_printed and (time.time() - enter_time) > data_collection_timeout:
-                    print("[GS]  ⚠ Data collection timed out, printing partial data.")
+                    print("[GS]  !! Data collection timed out, printing partial data.")
                     char.dump()
                     data_dump_printed = True
                     last_ping = time.time()
@@ -478,6 +494,7 @@ def game_server_flow(ip: str, port: int, login_name: str,
 
 def main():
     npc_data.load_npc_names()
+    item_data.load_item_data()
     ls_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     ls_sock.settimeout(10.0)
     try:
