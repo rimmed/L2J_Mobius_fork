@@ -3,7 +3,7 @@ revision = 3
 requires-python = ">=3.12"
 
 [[package]]
-name = "l2-client"
+name = "l2-agent"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [

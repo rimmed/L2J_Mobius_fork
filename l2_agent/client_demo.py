@@ -7,17 +7,14 @@ import socket
 import struct
 import time
 
-import crypto
-import item_data
-import npc_data
-import packets
-from character import L2Character
+from l2_client import crypto, item_data, npc_data, packets
+from l2_client.character import L2Character
 
 # --- CONFIGURATION ---
 SERVER_IP = "127.0.0.1"
 LOGIN_PORT = 2106
-ACCOUNT_LOGIN = ""
-ACCOUNT_PASSWORD = ""
+ACCOUNT_LOGIN = "gather7"
+ACCOUNT_PASSWORD = "S!lver=drag0n"
 SERVER_ID = 0
 CHAR_SLOT = 0
 
