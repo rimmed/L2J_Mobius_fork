@@ -315,7 +315,7 @@ def game_server_flow(ip: str, port: int, login_name: str,
                         char.radar.remove(oid)
                         if oid == char.object_id:
                             # Character died
-                            print(f"[GS]  [!] Character died!")
+                            print("[GS]  [!] Character died!")
                             state = "DEAD"
                             char_dead_since = time.time()
                             asked_for_help = False
@@ -388,6 +388,44 @@ def game_server_flow(ip: str, port: int, login_name: str,
                 elif pid == 0x4A:
                     name, msg = packets.parse_creature_say(body)
                     print(f"[GS]      [{name}]: {msg}")
+                elif pid == 0x64 and len(body) >= 13:
+                    # SysMsg damage log
+                    msg_id = struct.unpack_from("<I", body, 1)[0]
+                    param_count = struct.unpack_from("<I", body, 5)[0]
+                    pos = 9
+                    params = []
+                    for _ in range(param_count):
+                        if pos + 4 > len(body):
+                            break
+                        ptype = struct.unpack_from("<I", body, pos)[0]; pos += 4
+                        if ptype == 1:  # TYPE_INT_NUMBER
+                            if pos + 4 > len(body):
+                                break
+                            val = struct.unpack_from("<I", body, pos)[0]; pos += 4
+                            params.append(str(val))
+                        elif ptype == 12:  # TYPE_PLAYER_NAME
+                            s, pos = packets._read_utf16le_string(body, pos)
+                            params.append(s)
+                        elif ptype == 0:  # TYPE_TEXT
+                            s, pos = packets._read_utf16le_string(body, pos)
+                            params.append(s)
+                        elif ptype == 6:  # TYPE_LONG_NUMBER
+                            if pos + 8 > len(body):
+                                break
+                            pos += 8  # skip
+                        else:
+                            if pos + 4 > len(body):
+                                break
+                            pos += 4  # skip int-based types
+                    if msg_id == 35:
+                        # "You hit for $s1 damage."
+                        dmg = params[0] if params else "?"
+                        print(f"[GS]  DMG dealt -> target: {dmg}")
+                    elif msg_id in (36, 37):
+                        # "$s1 hit you for $s2 damage."
+                        name = params[0] if len(params) > 0 else "?"
+                        dmg = params[1] if len(params) > 1 else "?"
+                        print(f"[GS]  DMG taken <- {name}: {dmg}")
                 elif pid == 0xED and state == "DEAD" and len(body) >= 5:
                     # ConfirmDlg: opcode at [0], message ID int at [1]
                     msg_id = struct.unpack_from("<I", body, 1)[0]
