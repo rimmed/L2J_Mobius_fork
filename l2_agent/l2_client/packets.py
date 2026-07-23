@@ -189,6 +189,30 @@ def build_use_item(object_id: int, ctrl_pressed: bool = False) -> bytes:
     return pack(p)
 
 
+def build_request_restart_point(requested_point_type: int = 0) -> bytes:
+    """
+    Packet 0x6D: RequestRestartPoint — return to town/clanhall/castle after death.
+
+    Point types: 0 = town (default), 1 = clan hall, 2 = castle, 27 = jail.
+    Format: c i
+    """
+    p = bytearray([0x6D])
+    p += struct.pack("<i", requested_point_type)
+    return pack(p)
+
+
+def build_dlg_answer(message_id: int, answer: int, requester_id: int = 0) -> bytes:
+    """
+    Packet 0xC5: DlgAnswer — respond to a confirmation dialog.
+
+    Used for accepting/rejecting resurrection, summons, etc.
+    Format: c iii
+    """
+    p = bytearray([0xC5])
+    p += struct.pack("<iii", message_id, answer, requester_id)
+    return pack(p)
+
+
 def build_auto_soulshot(item_id: int, enable: bool = True) -> bytes:
     """
     ExPacket (client->server) 0xD0 0x05: RequestAutoSoulShot -- enable/disable auto soulshot use.

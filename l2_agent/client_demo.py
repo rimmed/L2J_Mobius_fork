@@ -155,7 +155,7 @@ def game_server_flow(ip: str, port: int, login_name: str,
 
         # -- Combat state --
         current_target_id: int = 0
-        state: str = "IDLE"          # IDLE | MOVING | SELECT | ATTACKING | LOOTING
+        state: str = "IDLE"          # IDLE | MOVING | SELECT | ATTACKING | LOOTING | DEAD
         attack_attempts: int = 0
         skill_used_on_target: bool = False  # True once Power Strike was cast on current target
         last_action = time.time()
@@ -163,6 +163,8 @@ def game_server_flow(ip: str, port: int, login_name: str,
         looting_since: float = 0.0     # timestamp when LOOTING started
         kills: int = 0                 # monsters killed so far
         MAX_KILLS = 5                  # stop after this many kills
+        char_dead_since: float = 0.0   # timestamp when character died
+        asked_for_help: bool = False   # True once help message was sent after death
 
         while True:
             try:
@@ -311,7 +313,18 @@ def game_server_flow(ip: str, port: int, login_name: str,
                     if die:
                         oid = die["object_id"]
                         char.radar.remove(oid)
-                        if oid == current_target_id:
+                        if oid == char.object_id:
+                            # Character died
+                            print(f"[GS]  [!] Character died!")
+                            state = "DEAD"
+                            char_dead_since = time.time()
+                            asked_for_help = False
+                            pending_loot.clear()
+                            current_target_id = 0
+                            attack_attempts = 0
+                            skill_used_on_target = False
+                            last_action = time.time()
+                        elif oid == current_target_id:
                             print(f"[GS]  <- Die: target {current_target_id} killed!")
                             current_target_id = 0
                             state = "LOOTING"
@@ -375,6 +388,21 @@ def game_server_flow(ip: str, port: int, login_name: str,
                 elif pid == 0x4A:
                     name, msg = packets.parse_creature_say(body)
                     print(f"[GS]      [{name}]: {msg}")
+                elif pid == 0xED and state == "DEAD" and len(body) >= 5:
+                    # ConfirmDlg: opcode at [0], message ID int at [1]
+                    msg_id = struct.unpack_from("<I", body, 1)[0]
+                    print(f"[GS]  <- ConfirmDlg id={msg_id} (len={len(body)})")
+                    if msg_id == 1510 or msg_id == 322:
+                        # 1510 = "$s1 is making an attempt at resurrection..."
+                        # 322 = "Do you wish to be resurrected?"
+                        print("[GS]     -> Accepting resurrection!")
+                        crypto.send_raw(gs, packets.build_dlg_answer(msg_id, 1, 0))
+                        state = "IDLE"
+                        char_dead_since = 0.0
+                elif pid == 0x64 and state == "DEAD" and len(body) >= 5:
+                    # SysMsg (fallback): opcode at [0], message ID int at [1]
+                    msg_id = struct.unpack_from("<I", body, 1)[0]
+                    print(f"[GS]  SysMsg id={msg_id} (len={len(body)})")
 
                 # Ping every 5s
                 if time.time() - last_ping > 5:
@@ -386,8 +414,20 @@ def game_server_flow(ip: str, port: int, login_name: str,
                 if got_coords:
                     char.radar.prune(cur_x, cur_y)
 
-                # -- Combat state machine --
-                if got_coords and time.time() - last_action >= 1.0:
+                # -- Combat state machine (DEAD state runs regardless of got_coords) --
+                if state == "DEAD":
+                    dead_elapsed = time.time() - char_dead_since
+                    if not asked_for_help and dead_elapsed > 1.0:
+                        crypto.send_raw(gs, packets.build_say2("help me, i died! please resurrect!", chat_type=0))
+                        print("[GS]  -> Chat: asked for help (all chat)")
+                        asked_for_help = True
+                        last_action = time.time()
+                    elif dead_elapsed > 60:
+                        print("[GS]  -> Returning to town...")
+                        crypto.send_raw(gs, packets.build_request_restart_point(0))
+                        return
+
+                if got_coords and time.time() - last_action >= 1.0 and state != "DEAD":
                     if state == "LOOTING":
                         # Pick up queued drops: move to nearest, then send Action
                         if pending_loot:
