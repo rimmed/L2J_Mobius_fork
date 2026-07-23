@@ -13,8 +13,8 @@ from l2_client.character import L2Character
 # --- CONFIGURATION ---
 SERVER_IP = "127.0.0.1"
 LOGIN_PORT = 2106
-ACCOUNT_LOGIN = "gather7"
-ACCOUNT_PASSWORD = "S!lver=drag0n"
+ACCOUNT_LOGIN = ""
+ACCOUNT_PASSWORD = ""
 SERVER_ID = 0
 CHAR_SLOT = 0
 
@@ -157,6 +157,7 @@ def game_server_flow(ip: str, port: int, login_name: str,
         current_target_id: int = 0
         state: str = "IDLE"          # IDLE | MOVING | SELECT | ATTACKING | LOOTING
         attack_attempts: int = 0
+        skill_used_on_target: bool = False  # True once Power Strike was cast on current target
         last_action = time.time()
         pending_loot: list[dict] = []  # items to pick up during LOOTING
         looting_since: float = 0.0     # timestamp when LOOTING started
@@ -419,6 +420,7 @@ def game_server_flow(ip: str, port: int, login_name: str,
                             crypto.send_raw(gs, packets.build_attack_request(
                                 current_target_id, cur_x, cur_y, cur_z))
                             attack_attempts = 1
+                            skill_used_on_target = False
                             state = "ATTACKING"
                             last_action = time.time()
 
@@ -426,13 +428,21 @@ def game_server_flow(ip: str, port: int, login_name: str,
                         if current_target_id and current_target_id not in char.radar.entries:
                             current_target_id = 0
                             attack_attempts = 0
+                            skill_used_on_target = False
                             state = "IDLE"
+                        elif not skill_used_on_target and time.time() - last_action > 0.4:
+                            # Cast Power Strike (skill id 3) once per target after starting attack
+                            print(f"[GS]  -> UseSkill Power Strike (id=3) on {current_target_id}")
+                            crypto.send_raw(gs, packets.build_use_skill(3, ctrl_pressed=True))
+                            skill_used_on_target = True
+                            last_action = time.time()
                         elif time.time() - last_action > 3:
                             attack_attempts += 1
                             if attack_attempts > 10:
                                 print(f"[GS]  !! Giving up on {current_target_id} after 10 attempts")
                                 current_target_id = 0
                                 attack_attempts = 0
+                                skill_used_on_target = False
                                 state = "IDLE"
                             else:
                                 print(f"[GS]  -> AttackRequest retry #{attack_attempts} on {current_target_id}")

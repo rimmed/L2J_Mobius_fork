@@ -167,6 +167,17 @@ def build_attack_request(target_obj_id: int, x: int, y: int, z: int, shift_click
     return pack(p)
 
 
+def build_use_skill(skill_id: int, ctrl_pressed: bool = False, shift_pressed: bool = False) -> bytes:
+    """
+    Packet 0x2F: RequestMagicSkillUse -- use an active skill.
+
+    Format: c ii B  (skillId int, ctrlPressed int, shiftPressed byte)
+    """
+    p = bytearray([0x2F])
+    p += struct.pack("<iiB", skill_id, 1 if ctrl_pressed else 0, 1 if shift_pressed else 0)
+    return pack(p)
+
+
 def build_auto_soulshot(item_id: int, enable: bool = True) -> bytes:
     """
     ExPacket (client->server) 0xD0 0x05: RequestAutoSoulShot -- enable/disable auto soulshot use.
