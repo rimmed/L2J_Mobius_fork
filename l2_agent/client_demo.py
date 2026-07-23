@@ -7,7 +7,7 @@ import socket
 import struct
 import time
 
-from l2_client import crypto, item_data, npc_data, packets
+from l2_client import crypto, item_data, npc_data, packets, skill_data
 from l2_client.character import L2Character
 
 # --- CONFIGURATION ---
@@ -492,6 +492,7 @@ def game_server_flow(ip: str, port: int, login_name: str,
 def main():
     npc_data.load_npc_names()
     item_data.load_item_data()
+    skill_data.load_skill_data()
     ls_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     ls_sock.settimeout(10.0)
     try:

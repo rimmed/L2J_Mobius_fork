@@ -24,7 +24,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-from . import item_data, packets
+from . import item_data, packets, skill_data
 from .packets import PAPERDOLL_NAMES, STATUS_ATTRIBUTE_NAMES
 from .radar import Radar
 
@@ -429,12 +429,13 @@ class L2Character:
             passive_count = sum(1 for s in self.skills if s['passive'])
             active_count = len(self.skills) - passive_count
             print(f"  Active: {active_count}, Passive: {passive_count}")
-            print(f"  {'Skill ID':>10} {'Level':>6} {'Type':>8} {'Disabled':>8}")
-            print(f"  {'-'*10} {'-'*6} {'-'*8} {'-'*8}")
+            print(f"  {'Skill ID':>10} {'Name':<38} {'Lv':>3} {'Type':>8} {'Disabled':>8}")
+            print(f"  {'-'*10} {'-'*38} {'-'*3} {'-'*8} {'-'*8}")
             for sk in sorted(self.skills, key=lambda s: (s['passive'], s['id'])):
-                stype = "PASSIVE" if sk['passive'] else "active"
+                stype = "passive" if sk['passive'] else "active"
                 disabled = "YES" if sk['disabled'] else "no"
-                print(f"  {sk['id']:>10} {sk['level']:>6} {stype:>8} {disabled:>8}")
+                sname = skill_data.get_skill_name(sk["id"])
+                print(f"  {sk['id']:>10} {sname:<38} {sk['level']:>3} {stype:>8} {disabled:>8}")
         else:
             print("    (none)")
 
