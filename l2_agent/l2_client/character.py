@@ -415,11 +415,12 @@ class L2Character:
         # -- Inventory --
         print(f"\n  [Inventory -- {len(self.items)} items]")
         if self.items:
-            print(f"  {'ID':>10} {'Object ID':>10} {'Count':>8} {'Ench':>4} {'Equip':>5} {'Slot':>8}  {'Type':>6}")
-            print(f"  {'-'*10} {'-'*10} {'-'*8} {'-'*4} {'-'*5} {'-'*8}  {'-'*6}")
+            print(f"  {'ID':>10} {'Name':<38} {'ObjId':>10} {'Count':>7} {'Ench':>4} {'Eq':>2} {'Slot':>8}  {'Type':>6}")
+            print(f"  {'-'*10} {'-'*38} {'-'*10} {'-'*7} {'-'*4} {'-'*2} {'-'*8}  {'-'*6}")
             for item in sorted(self.items, key=lambda i: (i['equipped'], i['item_id']), reverse=True):
                 equip = "E" if item['equipped'] else "-"
-                print(f"  {item['item_id']:>10} {item['object_id']:>10} {item['count']:>8} {item['enchant']:>4} {equip:>5} 0x{item['body_part']:06X}  0x{item['type2']:04X}")
+                iname = item_data.get_item_name(item["item_id"])
+                print(f"  {item['item_id']:>10} {iname:<38} {item['object_id']:>10} {item['count']:>7} {item['enchant']:>4} {equip:>2} 0x{item['body_part']:06X}  0x{item['type2']:04X}")
         else:
             print("    (empty)")
 

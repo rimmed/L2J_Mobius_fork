@@ -237,23 +237,26 @@ def game_server_flow(ip: str, port: int, login_name: str,
                         si = packets.parse_spawn_item(body)
                         if si:
                             pending_loot.append(si)
-                            print(f"[GS]  <- SpawnItem: objId={si['object_id']} "
-                                  f"itemId={si['item_id']} count={si['count']} "
+                            iname = item_data.get_item_name(si["item_id"])
+                            print(f"[GS]  <- SpawnItem: {iname} ({si['item_id']}) "
+                                  f"x{si['count']} objId={si['object_id']} "
                                   f"(queued #{len(pending_loot)})")
 
                     elif pid == 0x0C:  # DropItem -- queue for pickup
                         di = packets.parse_drop_item(body)
                         if di:
                             pending_loot.append(di)
-                            print(f"[GS]  <- DropItem: objId={di['object_id']} "
-                                  f"itemId={di['item_id']} count={di['count']} "
+                            iname = item_data.get_item_name(di["item_id"])
+                            print(f"[GS]  <- DropItem: {iname} ({di['item_id']}) "
+                                  f"x{di['count']} objId={di['object_id']} "
                                   f"(queued #{len(pending_loot)})")
 
                     elif pid == 0x0D:  # GetItem -- loot confirmation
                         if len(body) >= 13:
                             picker_id = struct.unpack_from("<i", body, 1)[0]
                             item_id = struct.unpack_from("<i", body, 5)[0]
-                            print(f"[GS]  <- GetItem: picker={picker_id} itemId={item_id}")
+                            iname = item_data.get_item_name(item_id)
+                            print(f"[GS]  <- GetItem: picker={picker_id} {iname} ({item_id})")
 
                     elif pid == 0xA8:  # NetPing
                         crypto.send_raw(gs, packets.build_net_ping(struct.unpack_from("<I", body, 1)[0]))
@@ -335,18 +338,23 @@ def game_server_flow(ip: str, port: int, login_name: str,
                     si = packets.parse_spawn_item(body)
                     if si:
                         pending_loot.append(si)
-                        print(f"[GS]  <- SpawnItem: objId={si['object_id']} itemId={si['item_id']} "
-                              f"count={si['count']} (queued #{len(pending_loot)})")
+                        iname = item_data.get_item_name(si["item_id"])
+                        print(f"[GS]  <- SpawnItem: {iname} ({si['item_id']}) "
+                              f"x{si['count']} objId={si['object_id']} "
+                              f"(queued #{len(pending_loot)})")
                 elif pid == 0x0C:  # DropItem -- queue for pickup
                     di = packets.parse_drop_item(body)
                     if di:
                         pending_loot.append(di)
-                        print(f"[GS]  <- DropItem: objId={di['object_id']} itemId={di['item_id']} "
-                              f"count={di['count']} (queued #{len(pending_loot)})")
+                        iname = item_data.get_item_name(di["item_id"])
+                        print(f"[GS]  <- DropItem: {iname} ({di['item_id']}) "
+                              f"x{di['count']} objId={di['object_id']} "
+                              f"(queued #{len(pending_loot)})")
                 elif pid == 0x0D:  # GetItem -- loot confirmation
                     if len(body) >= 13:
                         item_id = struct.unpack_from("<i", body, 5)[0]
-                        print(f"[GS]  <- GetItem: itemId={item_id} collected")
+                        iname = item_data.get_item_name(item_id)
+                        print(f"[GS]  <- GetItem: {iname} ({item_id}) collected")
 
                 # Protocol handlers
                 if pid == 0xA8:
@@ -379,8 +387,9 @@ def game_server_flow(ip: str, port: int, login_name: str,
                                          key=lambda si: (cur_x - si["x"])**2 + (cur_y - si["y"])**2)
                             dist = ((cur_x - nearest["x"])**2 + (cur_y - nearest["y"])**2) ** 0.5
                             if dist < 80:
-                                print(f"[GS]  -> Pickup loot: objId={nearest['object_id']} "
-                                      f"itemId={nearest['item_id']}")
+                                iname = item_data.get_item_name(nearest["item_id"])
+                                print(f"[GS]  -> Pickup loot: {iname} ({nearest['item_id']}) "
+                                      f"x{nearest['count']} objId={nearest['object_id']}")
                                 crypto.send_raw(gs, packets.build_action(
                                     nearest["object_id"], nearest["x"], nearest["y"], nearest["z"],
                                     shift_click=False))
