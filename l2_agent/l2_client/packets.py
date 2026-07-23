@@ -462,8 +462,8 @@ def parse_etc_status_update(body: bytes) -> dict:
 
 def parse_creature_say(body: bytes) -> tuple[str, str]:
     """Parse CreatureSay (0x4A), return (speaker_name, message)."""
-    name, pos = _read_utf16le_string(body, 6)
-    pos += 4  # skip chat type (int)
+    # Format: opcode(1) + objectId(4) + chatType(4) + name(UTF16LE\0) + msg(UTF16LE\0)
+    name, pos = _read_utf16le_string(body, 9)
     msg, _ = _read_utf16le_string(body, pos)
     return name, msg
 
