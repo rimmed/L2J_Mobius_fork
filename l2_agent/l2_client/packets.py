@@ -178,6 +178,17 @@ def build_use_skill(skill_id: int, ctrl_pressed: bool = False, shift_pressed: bo
     return pack(p)
 
 
+def build_use_item(object_id: int, ctrl_pressed: bool = False) -> bytes:
+    """
+    Packet 0x14: UseItem -- use an inventory item by its object ID.
+
+    Format: c ii  (objectId int, ctrlPressed int)
+    """
+    p = bytearray([0x14])
+    p += struct.pack("<ii", object_id, 1 if ctrl_pressed else 0)
+    return pack(p)
+
+
 def build_auto_soulshot(item_id: int, enable: bool = True) -> bytes:
     """
     ExPacket (client->server) 0xD0 0x05: RequestAutoSoulShot -- enable/disable auto soulshot use.

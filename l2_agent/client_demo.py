@@ -320,6 +320,14 @@ def game_server_flow(ip: str, port: int, login_name: str,
                             attack_attempts = 0
                             last_action = time.time()
                             print(f"[GS]  Kills: {kills}/{MAX_KILLS}")
+                            # Use Healing Potion (itemId=1061) if HP is below 70%
+                            potion = next((i for i in char.items
+                                          if i["item_id"] == 1061 and i["count"] > 0), None)
+                            if potion and char.max_hp > 0 and char.cur_hp / char.max_hp < 0.7:
+                                iname = item_data.get_item_name(1061)
+                                print(f"[GS]  -> UseItem: {iname} (objectId={potion['object_id']}) "
+                                      f"HP {char.cur_hp:.0f}/{char.max_hp}")
+                                crypto.send_raw(gs, packets.build_use_item(potion["object_id"]))
                             if kills >= MAX_KILLS:
                                 print(f"[GS]  [DONE] Reached {MAX_KILLS} kills -- stopping")
                                 return
